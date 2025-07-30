@@ -3,7 +3,7 @@ require("dotenv").config();
 
 let pool;
 
-const connectionString = process.env.DATABASE_URL || process.env.EXTERNAL_URL;
+const connectionString = process.env.CONNECTION_STRING;
 
 if (process.env.NODE_ENV === "development") {
   pool = new Pool({

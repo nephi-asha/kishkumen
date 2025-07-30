@@ -110,7 +110,6 @@ module.exports = {
   setTenantSchema, // New middleware
   authorizeRoles,
 };
-const jwt = require("jsonwebtoken");
 
 const auth = (req, res, next) => {
   const token = req.header("Authorization");
@@ -135,4 +134,9 @@ const auth = (req, res, next) => {
   }
 };
 
-module.exports = auth;
+// module.exports = auth;
+module.exports = {
+  verifyToken,
+  setTenantSchema,
+  authorizeRoles,
+}

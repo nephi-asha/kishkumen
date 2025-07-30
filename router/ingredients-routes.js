@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const ingredientController = require('../controller/ingredient-controller');
-const { authorizeRoles } = require('../middleware/auth'); // Import authorizeRoles
+const { authorizeRoles } = require('../middleware/auth'); 
 
 // GET all ingredients for the authenticated user's bakery
 // Accessible by any authenticated user within a bakery

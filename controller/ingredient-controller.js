@@ -1,5 +1,6 @@
 const db = require("../database/db");
 const handleError = require("../utils/errorHandler");
+const asyncWrapper = require("../middleware/asyncWrapper");
 
 // GET all ingredients
 const getAllIngredients = asyncWrapper(async (req, res) => {
