@@ -1,19 +1,26 @@
-const routes = require("express").Router();
-const ingredientController = require("../controller/ingredient-controller");
+const express = require('express');
+const router = express.Router();
+const ingredientController = require('../controller/ingredient-controller');
+const { authorizeRoles } = require('../middleware/auth'); // Import authorizeRoles
 
-// GET all ingredients
-routes.get("/", ingredientController.getAllIngredients);
+// GET all ingredients for the authenticated user's bakery
+// Accessible by any authenticated user within a bakery
+router.get('/', ingredientController.getAllIngredients);
 
-// GET single ingredient by ID
-routes.get("/:id", ingredientController.getIngredientById);
+// GET single ingredient by ID for the authenticated user's bakery
+// Accessible by any authenticated user within a bakery
+router.get('/:id', ingredientController.getIngredientById);
 
 // CREATE new ingredient
-routes.post("/", ingredientController.createIngredient);
+// Only Store Owners, Admins, and Bakers can create ingredients
+router.post('/', authorizeRoles(['Store Owner', 'Admin', 'Baker']), ingredientController.createIngredient);
 
 // UPDATE ingredient by ID
-routes.put("/:id", ingredientController.updateIngredient);
+// Only Store Owners, Admins, and Bakers can update ingredients
+router.put('/:id', authorizeRoles(['Store Owner', 'Admin', 'Baker']), ingredientController.updateIngredient);
 
 // DELETE ingredient by ID
-routes.delete("/:id", ingredientController.deleteIngredient);
+// Only Store Owners and Admins can delete ingredients
+router.delete('/:id', authorizeRoles(['Store Owner', 'Admin']), ingredientController.deleteIngredient);
 
-module.exports = routes;
+module.exports = router;

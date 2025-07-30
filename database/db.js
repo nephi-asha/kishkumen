@@ -1,40 +1,45 @@
 const { Pool } = require("pg");
 require("dotenv").config();
-/* ***************
- * Connection Pool
- * SSL Object needed for local testing of app
- * But will cause problems in production environment
- * If - else will make determination which to use
- * *************** */
+
 let pool;
 
-if (process.env.NODE_ENV == "development") {
+const connectionString = process.env.DATABASE_URL || process.env.EXTERNAL_URL;
+
+if (process.env.NODE_ENV === "development") {
   pool = new Pool({
-    connectionString: process.env.CONNECTION_STRING,
+    connectionString: connectionString,
     ssl: {
       rejectUnauthorized: false,
     },
   });
-
-  // console.log(pool);
-
-  // Added for troubleshooting queries
-  // during development
-  module.exports = {
-    async query(text, params) {
-      try {
-        const res = await pool.query(text, params);
-        // console.log("executed query", { text })
-        return res;
-      } catch (error) {
-        console.error("error in query", { text });
-        throw error;
-      }
-    },
-  };
 } else {
+  // Use this for now to rule out SSL issues in non-dev environments too
   pool = new Pool({
-    connectionString: process.env.CONNECTION_STRING,
+    connectionString: connectionString,
+    ssl: {
+      rejectUnauthorized: false
+    }
   });
-  module.exports = pool;
 }
+
+pool.on('connect', () => {
+  console.log('Connected to PostgreSQL database!');
+});
+
+pool.on('error', (err) => {
+  console.error('Unexpected error on idle client', err);
+  process.exit(-1);
+});
+
+module.exports = {
+  async query(text, params) {
+    try {
+      const res = await pool.query(text, params);
+      return res;
+    } catch (error) {
+      console.error("Error executing query:", { text, error: error.message });
+      throw error;
+    }
+  },
+  pool: pool
+};
