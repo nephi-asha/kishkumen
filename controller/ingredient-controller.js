@@ -1,6 +1,5 @@
-const ingredientModel = require("../model/ingredients-model");
-const asyncWrapper = require("../middleware/asyncWrapper");
-const handleError = require("../utils/errorHandler");
+const db = require('../database/db');
+const handleError = require('../utils/errorHandler');
 
 // GET all ingredients
 const getAllIngredients = asyncWrapper(async (req, res) => {
@@ -84,13 +83,9 @@ const deleteIngredient = asyncWrapper(async (req, res) => {
     return handleError(res, 404, "Ingredient not found");
   }
 
-  res.status(200).json({ message: "Ingredient deleted successfully" });
-});
-
-module.exports = {
-  getAllIngredients,
-  getIngredientById,
-  createIngredient,
-  updateIngredient,
-  deleteIngredient,
+        res.status(200).json({ message: 'Ingredient deleted successfully!', ingredientId: ingredientId });
+    } catch (error) {
+        console.error('Error deleting ingredient:', error);
+        handleError(res, 500, 'Server error deleting ingredient.');
+    }
 };
