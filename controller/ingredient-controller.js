@@ -27,26 +27,46 @@ const getIngredientById = asyncWrapper(async (req, res) => {
 
 // CREATE ingredient
 const createIngredient = asyncWrapper(async (req, res) => {
-  const { name, quantity } = req.body;
+  const {
+    ingredient_name,
+    ingredient_mesaurement,
+    cuurent_stock_quantity,
+    re_order_level,
+  } = req.body;
 
-  if (!name || !quantity) {
+  if (
+    !ingredient_name ||
+    !cuurent_stock_quantity ||
+    !ingredient_mesaurement ||
+    !re_order_level
+  ) {
     return handleError(res, 400, "Name and quantity are required");
   }
 
-  const response = await ingredientModel.createIngredient(name, quantity);
+  const response = await ingredientModel.createIngredient(
+    ingredient_name,
+    ingredient_mesaurement,
+    cuurent_stock_quantity,
+    re_order_level
+  );
   res.status(201).json(response.rows[0]);
 });
 
 // UPDATE ingredient
 const updateIngredient = asyncWrapper(async (req, res) => {
   const { id } = req.params;
-  const { name, quantity } = req.body;
+  const { current_stock_quantity, ingredient_name } = req.body;
+  console.log(req.body);
 
-  if (!name || !quantity) {
-    return handleError(res, 400, "Name and quantity are required");
+  if (!current_stock_quantity) {
+    return handleError(res, 400, "Quantity is required");
   }
 
-  const response = await ingredientModel.updateIngredient(id, name, quantity);
+  const response = await ingredientModel.updateIngredient(
+    id,
+    ingredient_name,
+    current_stock_quantity
+  );
 
   if (response.rows.length === 0) {
     return handleError(res, 404, "Ingredient not found");

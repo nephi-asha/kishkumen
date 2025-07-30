@@ -14,18 +14,23 @@ async function getIngredientById(id) {
 }
 
 // CREATE ingredient
-async function createIngredient(name, quantity) {
+async function createIngredient(
+  name,
+  ingredient_mesaurement,
+  quantity,
+  re_order_level
+) {
   return await pool.query(
-    "INSERT INTO ingredients (name, quantity) VALUES ($1, $2) RETURNING *",
-    [name, quantity]
+    "INSERT INTO Ingredients (ingredient_name, unit_of_measure, current_stock_quantity, reorder_level)  VALUES  ($1, $2, $3, $4) RETURNING *",
+    [name, ingredient_mesaurement, quantity, re_order_level]
   );
 }
 
 // UPDATE ingredient
 async function updateIngredient(id, name, quantity) {
   return await pool.query(
-    "UPDATE ingredients SET name = $1, quantity = $2 WHERE ingredient_id = $3 RETURNING *",
-    [name, quantity, id]
+    "UPDATE Ingredients SET current_stock_quantity = $1, ingredient_name = $2, updated_at = CURRENT_TIMESTAMP WHERE ingredient_id = $3 RETURNING ingredient_id, ingredient_name, current_stock_quantity",
+    [quantity, name, id]
   );
 }
 
