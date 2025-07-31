@@ -3,7 +3,9 @@ const ingredientRoutes = require("./ingredients-routes");
 const productsRoutes = require("./products-routes");
 const authRoutes = require("./auth-routes"); 
 const userRoutes = require("./user-routes"); 
-const recipeRoutes = require("./recipe-routes"); // Import recipe routes
+const recipeRoutes = require("./recipe-routes")
+const salesRoutes = require("./sales-routes");
+const purchase_requestsRoutes = require("./purchase-request-routes");
 
 router.get("/", (req, res) => {
   res.json("Welcome to Deseret 🐝🍯!");
@@ -13,6 +15,8 @@ router.use("/ingredients", ingredientRoutes);
 router.use("/products", productsRoutes);
 router.use("/auth", authRoutes);
 router.use("/users", userRoutes); 
-router.use("/recipes", recipeRoutes); // Use recipe routes
+router.use("/recipes", recipeRoutes);
+router.use("/sales", salesRoutes); 
+router.use("/purchase-requests", purchase_requestsRoutes); 
 
 module.exports = router;

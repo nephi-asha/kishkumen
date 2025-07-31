@@ -3,6 +3,8 @@ const router = express.Router();
 const productsController = require('../controller/products-controller');
 const { authorizeRoles } = require('../middleware/auth'); // Import authorizeRoles
 
+
+
 // GET all products for the authenticated user's bakery
 // Accessible by any authenticated user within a bakery
 router.get('/', productsController.getAllProducts);

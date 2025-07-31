@@ -3,6 +3,8 @@ const router = express.Router();
 const userController = require('../controller/user-controller');
 const { authorizeRoles } = require('../middleware/auth'); // Import authorizeRoles
 
+
+
 router.post('/add-staff', authorizeRoles(['Store Owner', 'Admin']), userController.addStaffMember);
 
 router.get('/my-bakery', userController.getBakeryUsers);
