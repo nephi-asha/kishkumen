@@ -1,14 +1,37 @@
 const db = require('../database/db');
 const handleError = require('../utils/errorHandler');
 
+// Helper function to calculate recipe cost
+async function calculateRecipeCost(recipeId) {
+    try {
+        const ingredientsCostResult = await db.query(
+            `SELECT ri.quantity, i.cost_price
+             FROM Recipe_Ingredients ri
+             JOIN Ingredients i ON ri.ingredient_id = i.ingredient_id
+             WHERE ri.recipe_id = $1`,
+            [recipeId]
+        );
+
+        let totalCost = 0;
+        for (const item of ingredientsCostResult.rows) {
+            // Ensure cost_price is treated as a number
+            const ingredientCost = parseFloat(item.cost_price || 0);
+            totalCost += item.quantity * ingredientCost;
+        }
+        return totalCost;
+    } catch (error) {
+        console.error('Error calculating recipe cost:', error);
+        throw new Error('Failed to calculate recipe cost.');
+    }
+}
+
 // @desc    Get all products for the authenticated user's bakery
 // @route   GET /api/products
 // @access  Private (Any authenticated user within a bakery)
 exports.getAllProducts = async (req, res) => {
-    // No tenantId check here, as setTenantSchema middleware handles search_path
     try {
         const products = await db.query(
-            `SELECT product_id, product_name, description, unit_price, is_active, created_at, updated_at
+            `SELECT product_id, product_name, description, unit_price, cost_price, is_active, recipe_id, created_at, updated_at
              FROM Products
              ORDER BY product_name`
         );
@@ -19,23 +42,22 @@ exports.getAllProducts = async (req, res) => {
     }
 };
 
-// @desc    Get a single product by ID for the authenticated user's bakery
+// @desc    Get a single product by ID
 // @route   GET /api/products/:id
 // @access  Private (Any authenticated user within a bakery)
 exports.getProductById = async (req, res) => {
     const productId = parseInt(req.params.id);
-    // No tenantId check here, as setTenantSchema middleware handles search_path
 
     try {
         const product = await db.query(
-            `SELECT product_id, product_name, description, unit_price, is_active, created_at, updated_at
+            `SELECT product_id, product_name, description, unit_price, cost_price, is_active, recipe_id, created_at, updated_at
              FROM Products
-             WHERE product_id = $1`, // Query implicitly uses the tenant's schema
+             WHERE product_id = $1`,
             [productId]
         );
 
         if (product.rows.length === 0) {
-            return handleError(res, 404, 'Product not found or not accessible to your bakery.');
+            return handleError(res, 404, 'Product not found.');
         }
         res.status(200).json(product.rows[0]);
     } catch (error) {
@@ -44,21 +66,18 @@ exports.getProductById = async (req, res) => {
     }
 };
 
-// @desc    Create a new product for the authenticated user's bakery
+// @desc    Create a new product
 // @route   POST /api/products
 // @access  Private (Store Owner, Admin)
 exports.createProduct = async (req, res) => {
-    const { product_name, description, unit_price, is_active } = req.body;
-    // No tenantId check here, as setTenantSchema middleware handles search_path
+    const { product_name, description, unit_price, is_active, recipe_id } = req.body;
+    let calculated_cost_price = 0.00;
 
-    // --- START OF RELEVANT VALIDATION ---
     if (!product_name || unit_price === undefined || unit_price === null) {
-        return handleError(res, 400, 'Name and price are required');
+        return handleError(res, 400, 'Product name and unit price are required.');
     }
-    // --- END OF RELEVANT VALIDATION ---
 
     try {
-        // Check for existing product name within the current tenant's schema
         const existingProduct = await db.query(
             'SELECT product_id FROM Products WHERE product_name = $1',
             [product_name]
@@ -67,10 +86,18 @@ exports.createProduct = async (req, res) => {
             return handleError(res, 409, 'Product with this name already exists in your bakery.');
         }
 
+        if (recipe_id) {
+            const recipeExists = await db.query('SELECT recipe_id FROM Recipes WHERE recipe_id = $1', [recipe_id]);
+            if (recipeExists.rows.length === 0) {
+                return handleError(res, 400, 'Provided recipe_id does not exist.');
+            }
+            calculated_cost_price = await calculateRecipeCost(recipe_id);
+        }
+
         const newProduct = await db.query(
-            `INSERT INTO Products (product_name, description, unit_price, is_active)
-             VALUES ($1, $2, $3, $4) RETURNING product_id, product_name`,
-            [product_name, description, unit_price, is_active !== undefined ? is_active : true]
+            `INSERT INTO Products (product_name, description, unit_price, cost_price, is_active, recipe_id)
+             VALUES ($1, $2, $3, $4, $5, $6) RETURNING product_id, product_name, cost_price`,
+            [product_name, description || null, unit_price, calculated_cost_price, is_active !== undefined ? is_active : true, recipe_id || null]
         );
         res.status(201).json({
             message: 'Product created successfully!',
@@ -78,36 +105,58 @@ exports.createProduct = async (req, res) => {
         });
     } catch (error) {
         console.error('Error creating product:', error);
-        handleError(res, 500, 'Server error creating product.');
+        handleError(res, 500, error.message || 'Server error creating product.');
     }
 };
 
-// @desc    Update an existing product for the authenticated user's bakery
+// @desc    Update an existing product
 // @route   PUT /api/products/:id
 // @access  Private (Store Owner, Admin)
 exports.updateProduct = async (req, res) => {
     const productId = parseInt(req.params.id);
-    const { product_name, description, unit_price, is_active } = req.body;
-    // No tenantId check here, as setTenantSchema middleware handles search_path
+    const { product_name, description, unit_price, is_active, recipe_id } = req.body;
 
     try {
-        // Verify the product exists within the current tenant's schema
         const existingProduct = await db.query(
-            'SELECT product_id FROM Products WHERE product_id = $1',
+            'SELECT product_id, recipe_id FROM Products WHERE product_id = $1',
             [productId]
         );
         if (existingProduct.rows.length === 0) {
-            return handleError(res, 404, 'Product not found or not accessible to your bakery.');
+            return handleError(res, 404, 'Product not found.');
         }
 
         const updateFields = [];
         const updateValues = [];
         let paramIndex = 1;
+        let recalculateCost = false;
 
         if (product_name !== undefined) { updateFields.push(`product_name = $${paramIndex++}`); updateValues.push(product_name); }
         if (description !== undefined) { updateFields.push(`description = $${paramIndex++}`); updateValues.push(description); }
         if (unit_price !== undefined) { updateFields.push(`unit_price = $${paramIndex++}`); updateValues.push(unit_price); }
         if (is_active !== undefined) { updateFields.push(`is_active = $${paramIndex++}`); updateValues.push(is_active); }
+
+        // If recipe_id is explicitly provided or changed, recalculate cost
+        if (recipe_id !== undefined && recipe_id !== existingProduct.rows[0].recipe_id) {
+            const recipeExists = await db.query('SELECT recipe_id FROM Recipes WHERE recipe_id = $1', [recipe_id]);
+            if (recipeExists.rows.length === 0) {
+                return handleError(res, 400, 'Provided recipe_id does not exist.');
+            }
+            updateFields.push(`recipe_id = $${paramIndex++}`);
+            updateValues.push(recipe_id);
+            recalculateCost = true;
+        } else if (recipe_id === null && existingProduct.rows[0].recipe_id !== null) { // If recipe_id is explicitly set to null
+            updateFields.push(`recipe_id = $${paramIndex++}`);
+            updateValues.push(null);
+            updateFields.push(`cost_price = $${paramIndex++}`); // Reset cost_price if recipe is removed
+            updateValues.push(0.00);
+        }
+
+
+        if (recalculateCost) {
+            const newCostPrice = await calculateRecipeCost(recipe_id);
+            updateFields.push(`cost_price = $${paramIndex++}`);
+            updateValues.push(newCostPrice);
+        }
 
         if (updateFields.length === 0) {
             return handleError(res, 400, 'No fields provided for update.');
@@ -118,7 +167,7 @@ exports.updateProduct = async (req, res) => {
             UPDATE Products
             SET ${updateFields.join(', ')}, updated_at = CURRENT_TIMESTAMP
             WHERE product_id = $${paramIndex}
-            RETURNING product_id, product_name
+            RETURNING product_id, product_name, cost_price
         `;
 
         const updatedProduct = await db.query(updateQuery, updateValues);
@@ -129,25 +178,23 @@ exports.updateProduct = async (req, res) => {
         });
     } catch (error) {
         console.error('Error updating product:', error);
-        handleError(res, 500, 'Server error updating product.');
+        handleError(res, 500, error.message || 'Server error updating product.');
     }
 };
 
-// @desc    Delete a product for the authenticated user's bakery
+// @desc    Delete a product
 // @route   DELETE /api/products/:id
 // @access  Private (Store Owner, Admin)
 exports.deleteProduct = async (req, res) => {
     const productId = parseInt(req.params.id);
-    // No tenantId check here, as setTenantSchema middleware handles search_path
 
     try {
-        // Verify the product belongs to the current tenant's schema
         const existingProduct = await db.query(
             'SELECT product_id FROM Products WHERE product_id = $1',
             [productId]
         );
         if (existingProduct.rows.length === 0) {
-            return handleError(res, 404, 'Product not found or not accessible to your bakery.');
+            return handleError(res, 404, 'Product not found.');
         }
 
         const deleteResult = await db.query(

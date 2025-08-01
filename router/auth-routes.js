@@ -179,30 +179,33 @@ router.post(
             // SQL to create a new tenant's schema and its tables
             // This will be executed dynamically for each new tenant
             const TENANT_SCHEMA_SQL = `
-                CREATE SCHEMA IF NOT EXISTS ${schemaName};
+                CREATE SCHEMA IF NOT EXISTS $1;
 
-                CREATE TABLE ${schemaName}.Products (
+                CREATE TABLE $1.Products (
                     product_id SERIAL PRIMARY KEY,
                     product_name VARCHAR(100) NOT NULL,
                     description TEXT,
                     unit_price DECIMAL(10, 2) NOT NULL,
+                    cost_price DECIMAL(10, 2) DEFAULT 0.00, -- Added cost_price for the product
                     is_active BOOLEAN DEFAULT TRUE,
+                    recipe_id INT, -- Added to link product to a recipe
                     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
                     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
                 );
 
-                CREATE TABLE ${schemaName}.Ingredients (
+                CREATE TABLE $1.Ingredients (
                     ingredient_id SERIAL PRIMARY KEY,
                     ingredient_name VARCHAR(100) UNIQUE NOT NULL,
                     unit_of_measure VARCHAR(20),
                     current_stock DECIMAL(10, 2) DEFAULT 0,
                     reorder_level DECIMAL(10, 2),
                     supplier VARCHAR(100),
+                    cost_price DECIMAL(10, 2) DEFAULT 0.00, -- Added cost_price for the ingredient
                     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
                     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
                 );
 
-                CREATE TABLE ${schemaName}.Recipes (
+                CREATE TABLE $1.Recipes (
                     recipe_id SERIAL PRIMARY KEY,
                     recipe_name VARCHAR(100) NOT NULL,
                     description TEXT,
@@ -211,41 +214,41 @@ router.post(
                     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
                 );
 
-                CREATE TABLE ${schemaName}.Recipe_Ingredients (
+                CREATE TABLE $1.Recipe_Ingredients (
                     recipe_ingredient_id SERIAL PRIMARY KEY,
                     recipe_id INT NOT NULL,
                     ingredient_id INT NOT NULL,
                     quantity DECIMAL(10, 2) NOT NULL,
-                    FOREIGN KEY (recipe_id) REFERENCES ${schemaName}.Recipes(recipe_id) ON DELETE CASCADE,
-                    FOREIGN KEY (ingredient_id) REFERENCES ${schemaName}.Ingredients(ingredient_id) ON DELETE RESTRICT
+                    FOREIGN KEY (recipe_id) REFERENCES $1.Recipes(recipe_id) ON DELETE CASCADE,
+                    FOREIGN KEY (ingredient_id) REFERENCES $1.Ingredients(ingredient_id) ON DELETE RESTRICT
                 );
 
-                CREATE TABLE ${schemaName}.Sales (
+                CREATE TABLE $1.Sales (
                     sale_id SERIAL PRIMARY KEY,
                     sale_date TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
                     total_amount DECIMAL(10, 2) NOT NULL,
                     payment_method VARCHAR(50),
-                    cashier_user_id INT,
+                    cashier_user_id INT, -- Link to user who made the sale (if applicable)
                     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
                     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
                 );
 
-                CREATE TABLE ${schemaName}.Sale_Items (
+                CREATE TABLE $1.Sale_Items (
                     sale_item_id SERIAL PRIMARY KEY,
                     sale_id INT NOT NULL,
                     product_id INT NOT NULL,
                     quantity INT NOT NULL,
                     unit_price DECIMAL(10, 2) NOT NULL,
-                    FOREIGN KEY (sale_id) REFERENCES ${schemaName}.Sales(sale_id) ON DELETE CASCADE,
-                    FOREIGN KEY (product_id) REFERENCES ${schemaName}.Products(product_id) ON DELETE RESTRICT
+                    FOREIGN KEY (sale_id) REFERENCES $1.Sales(sale_id) ON DELETE CASCADE,
+                    FOREIGN KEY (product_id) REFERENCES $1.Products(product_id) ON DELETE RESTRICT
                 );
 
-                CREATE TABLE ${schemaName}.Purchase_Requests (
+                CREATE TABLE $1.Purchase_Requests (
                     request_id SERIAL PRIMARY KEY,
                     request_date TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
                     requested_by_user_id INT NOT NULL,
                     status VARCHAR(50) DEFAULT 'Pending' CHECK (status IN ('Pending', 'Approved', 'Rejected', 'Completed')),
-                    approval_required BOOLEAN DEFAULT FALSE,
+                    approval_required BOOLEAN DEFAULT FALSE, -- If owner approval is required
                     approved_by_user_id INT,
                     approval_date TIMESTAMP WITH TIME ZONE,
                     notes TEXT,
@@ -253,16 +256,22 @@ router.post(
                     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
                 );
 
-                CREATE TABLE ${schemaName}.Purchase_Request_Items (
+                CREATE TABLE $1.Purchase_Request_Items (
                     request_item_id SERIAL PRIMARY KEY,
                     request_id INT NOT NULL,
                     ingredient_id INT NOT NULL,
                     quantity_requested DECIMAL(10, 2) NOT NULL,
                     unit_price_estimate DECIMAL(10, 2),
-                    FOREIGN KEY (request_id) REFERENCES ${schemaName}.Purchase_Requests(request_id) ON DELETE CASCADE,
-                    FOREIGN KEY (ingredient_id) REFERENCES ${schemaName}.Ingredients(ingredient_id) ON DELETE RESTRICT
+                    FOREIGN KEY (request_id) REFERENCES $1.Purchase_Requests(request_id) ON DELETE CASCADE,
+                    FOREIGN KEY (ingredient_id) REFERENCES $1.Ingredients(ingredient_id) ON DELETE RESTRICT
                 );
+
+                -- Add foreign key for Products.recipe_id
+                ALTER TABLE $1.Products
+                ADD CONSTRAINT fk_products_recipe
+                FOREIGN KEY (recipe_id) REFERENCES $1.Recipes(recipe_id) ON DELETE SET NULL;
             `;
+
 
             const schemaCreationQueries = TENANT_SCHEMA_SQL.split(';').filter(q => q.trim().length > 0);
             for (const query of schemaCreationQueries) {
