@@ -25,7 +25,7 @@ exports.getAllSales = async (req, res) => {
             salesQuery += ` AND `;
         }
         if (endDate) {
-            query += `sale_date <= $${paramIndex++}`;
+            salesQuery += `sale_date <= $${paramIndex++}`;
             salesQueryParams.push(endDate);
         }
     }
@@ -36,7 +36,7 @@ exports.getAllSales = async (req, res) => {
         const salesResult = await db.query(salesQuery, salesQueryParams);
         const sales = salesResult.rows;
 
-        // For each sale, fetch its associated items
+        // For each sale, fetch its associated items and product details
         for (let i = 0; i < sales.length; i++) {
             const sale = sales[i];
             const saleItemsResult = await db.query(
@@ -46,10 +46,10 @@ exports.getAllSales = async (req, res) => {
                  WHERE si.sale_id = $1`,
                 [sale.sale_id]
             );
-            sale.items = saleItemsResult.rows;
+            sale.items = saleItemsResult.rows; // Attach the fetched items to the current sale object
         }
 
-        res.status(200).json(sales);
+        res.status(200).json(sales); // Send the sales array with nested items
     } catch (error) {
         console.error('Error fetching sales:', error);
         handleError(res, 500, 'Server error fetching sales.');
