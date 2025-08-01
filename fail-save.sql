@@ -17,7 +17,7 @@ END $$;
 -- This ensures foreign key constraints don't block drops.
 DROP TABLE IF EXISTS User_Roles CASCADE;
 DROP TABLE IF EXISTS Users CASCADE;
-DROP TABLE IF EXISTS Tenants CASCADE;
+DROP TABLE IF EXISTS Tenants CASCADE; -- Renamed from Bakeries
 DROP TABLE IF EXISTS Roles CASCADE;
 
 -- 3. Create tables in the public schema (order of dependencies)
@@ -78,7 +78,7 @@ INSERT INTO Roles (role_name) VALUES
 ('Baker'),
 ('Cashier'),
 ('Super Admin')
-ON CONFLICT (role_name) DO NOTHING; -- Prevents errors if roles already exist (e.g., if we run this script partially)
+ON CONFLICT (role_name) DO NOTHING; -- Prevents errors if roles already exist (e.g., if you run this script partially)
 
 -- Re-enable foreign key checks (if you disabled them)
 -- SET session_replication_role = 'origin';
@@ -91,5 +91,5 @@ ALTER SEQUENCE user_roles_user_role_id_seq RESTART WITH 1;
 
 -- Note: Tenant-specific tables (Products, Ingredients, Recipes, Sales, Purchase_Requests,
 -- and their respective junction tables) are NOT created here.
--- They are created dynamically by our Node.js backend (in auth-routes.js)
+-- They are created dynamically by your Node.js backend (in auth-routes.js)
 -- when a new bakery (tenant) is registered.

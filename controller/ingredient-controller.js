@@ -159,6 +159,17 @@ exports.deleteIngredient = async (req, res) => {
         res.status(200).json({ message: 'Ingredient deleted successfully!', ingredientId: ingredientId });
     } catch (error) {
         console.error('Error deleting ingredient:', error);
+        // Check for specific foreign key violation error (PostgreSQL code '23503')
+        if (error.code === '23503') {
+            // Extract the table name from the error detail if available
+            const detail = error.detail || '';
+            let referencingTable = 'another table'; // Default message
+            const match = detail.match(/from table "(\w+)"/);
+            if (match && match[1]) {
+                referencingTable = match[1];
+            }
+            return handleError(res, 409, `Cannot delete ingredient: It is currently used in the '${referencingTable}' table. Please remove it from there first.`);
+        }
         handleError(res, 500, 'Server error deleting ingredient.');
     }
 };
