@@ -1,40 +1,55 @@
 const db = require('../database/db');
 const handleError = require('../utils/errorHandler');
 
-// @desc    Get all sales for the authenticated user's bakery, with optional date filtering
+// @desc    Get all sales for the authenticated user's bakery, with optional date filtering and nested items
 // @route   GET /api/sales?startDate=YYYY-MM-DD&endDate=YYYY-MM-DD
 // @access  Private (Any authenticated user within a bakery)
 exports.getAllSales = async (req, res) => {
     const { startDate, endDate } = req.query; // Extract startDate and endDate from query parameters
 
-    let query = `
+    let salesQuery = `
         SELECT sale_id, sale_date, total_amount, payment_method, cashier_user_id, created_at, updated_at
         FROM Sales
     `;
-    const queryParams = [];
+    const salesQueryParams = [];
     let paramIndex = 1;
 
     // Add WHERE clause for date filtering if parameters are provided
     if (startDate || endDate) {
-        query += ` WHERE `;
+        salesQuery += ` WHERE `;
         if (startDate) {
-            query += `sale_date >= $${paramIndex++}`;
-            queryParams.push(startDate);
+            salesQuery += `sale_date >= $${paramIndex++}`;
+            salesQueryParams.push(startDate);
         }
         if (startDate && endDate) {
-            query += ` AND `;
+            salesQuery += ` AND `;
         }
         if (endDate) {
             query += `sale_date <= $${paramIndex++}`;
-            queryParams.push(endDate);
+            salesQueryParams.push(endDate);
         }
     }
 
-    query += ` ORDER BY sale_date DESC`; // Always order by date
+    salesQuery += ` ORDER BY sale_date DESC`; // Always order by date
 
     try {
-        const sales = await db.query(query, queryParams);
-        res.status(200).json(sales.rows);
+        const salesResult = await db.query(salesQuery, salesQueryParams);
+        const sales = salesResult.rows;
+
+        // For each sale, fetch its associated items
+        for (let i = 0; i < sales.length; i++) {
+            const sale = sales[i];
+            const saleItemsResult = await db.query(
+                `SELECT si.quantity, si.unit_price, p.product_id, p.product_name
+                 FROM Sale_Items si
+                 JOIN Products p ON si.product_id = p.product_id
+                 WHERE si.sale_id = $1`,
+                [sale.sale_id]
+            );
+            sale.items = saleItemsResult.rows;
+        }
+
+        res.status(200).json(sales);
     } catch (error) {
         console.error('Error fetching sales:', error);
         handleError(res, 500, 'Server error fetching sales.');
@@ -61,7 +76,6 @@ exports.getSaleById = async (req, res) => {
 
         const sale = saleResult.rows[0];
 
-        // Fetch associated sale items for this sale
         const saleItemsResult = await db.query(
             `SELECT si.quantity, si.unit_price, p.product_id, p.product_name
              FROM Sale_Items si
