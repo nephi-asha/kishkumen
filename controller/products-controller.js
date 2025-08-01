@@ -3,6 +3,7 @@ const handleError = require('../utils/errorHandler');
 
 // Helper function to calculate recipe cost
 async function calculateRecipeCost(recipeId) {
+    console.log(`[DEBUG] calculateRecipeCost called for recipeId: ${recipeId}`);
     try {
         const ingredientsCostResult = await db.query(
             `SELECT ri.quantity, i.cost_price
@@ -12,12 +13,16 @@ async function calculateRecipeCost(recipeId) {
             [recipeId]
         );
 
+        console.log(`[DEBUG] Ingredients fetched for recipe ${recipeId}:`, ingredientsCostResult.rows);
+
         let totalCost = 0;
         for (const item of ingredientsCostResult.rows) {
             // Ensure cost_price is treated as a number
             const ingredientCost = parseFloat(item.cost_price || 0);
+            console.log(`[DEBUG] Item: quantity=${item.quantity}, cost_price=${item.cost_price}, parsed_cost=${ingredientCost}`);
             totalCost += item.quantity * ingredientCost;
         }
+        console.log(`[DEBUG] Calculated totalCost for recipe ${recipeId}: ${totalCost}`);
         return totalCost;
     } catch (error) {
         console.error('Error calculating recipe cost:', error);
@@ -92,6 +97,7 @@ exports.createProduct = async (req, res) => {
                 return handleError(res, 400, 'Provided recipe_id does not exist.');
             }
             calculated_cost_price = await calculateRecipeCost(recipe_id);
+            console.log(`[DEBUG] createProduct: Calculated cost for new product: ${calculated_cost_price}`);
         }
 
         const newProduct = await db.query(
@@ -149,13 +155,24 @@ exports.updateProduct = async (req, res) => {
             updateValues.push(null);
             updateFields.push(`cost_price = $${paramIndex++}`); // Reset cost_price if recipe is removed
             updateValues.push(0.00);
+        } else if (recipe_id === undefined && existingProduct.rows[0].recipe_id !== null) {
+            // If recipe_id is NOT provided in the update, but the product already HAS a recipe_id,
+            // we should still recalculate if the underlying ingredient costs or recipe quantities might have changed.
+            // This is a proactive recalculation.
+            recalculateCost = true;
+            // Use the existing recipe_id for recalculation
+            req.body.recipe_id_for_recalc = existingProduct.rows[0].recipe_id;
         }
 
 
         if (recalculateCost) {
-            const newCostPrice = await calculateRecipeCost(recipe_id);
-            updateFields.push(`cost_price = $${paramIndex++}`);
-            updateValues.push(newCostPrice);
+            const recipeIdToUse = recipe_id !== undefined ? recipe_id : req.body.recipe_id_for_recalc;
+            if (recipeIdToUse) { // Only calculate if there's a recipe to use
+                const newCostPrice = await calculateRecipeCost(recipeIdToUse);
+                updateFields.push(`cost_price = $${paramIndex++}`);
+                updateValues.push(newCostPrice);
+                console.log(`[DEBUG] updateProduct: Recalculated cost for product ${productId}: ${newCostPrice}`);
+            }
         }
 
         if (updateFields.length === 0) {
