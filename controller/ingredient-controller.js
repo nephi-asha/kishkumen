@@ -5,10 +5,9 @@ const handleError = require('../utils/errorHandler');
 // @route   GET /api/ingredients
 // @access  Private (Any authenticated user within a bakery)
 exports.getAllIngredients = async (req, res) => {
-    // No tenantId check here, as setTenantSchema middleware handles search_path
     try {
         const ingredients = await db.query(
-            `SELECT ingredient_id, ingredient_name, unit_of_measure, current_stock, reorder_level, supplier, created_at, updated_at
+            `SELECT ingredient_id, ingredient_name, unit_of_measure, current_stock, reorder_level, supplier, cost_price, created_at, updated_at
              FROM Ingredients
              ORDER BY ingredient_name`
         );
@@ -24,13 +23,12 @@ exports.getAllIngredients = async (req, res) => {
 // @access  Private (Any authenticated user within a bakery)
 exports.getIngredientById = async (req, res) => {
     const ingredientId = parseInt(req.params.id);
-    // No tenantId check here, as setTenantSchema middleware handles search_path
 
     try {
         const ingredient = await db.query(
-            `SELECT ingredient_id, ingredient_name, unit_of_measure, current_stock, reorder_level, supplier, created_at, updated_at
+            `SELECT ingredient_id, ingredient_name, unit_of_measure, current_stock, reorder_level, supplier, cost_price, created_at, updated_at
              FROM Ingredients
-             WHERE ingredient_id = $1`, // Query implicitly uses the tenant's schema
+             WHERE ingredient_id = $1`,
             [ingredientId]
         );
 
@@ -48,8 +46,7 @@ exports.getIngredientById = async (req, res) => {
 // @route   POST /api/ingredients
 // @access  Private (Store Owner, Admin, Baker)
 exports.createIngredient = async (req, res) => {
-    const { ingredient_name, unit_of_measure, current_stock, reorder_level, supplier } = req.body;
-    // No tenantId check here, as setTenantSchema middleware handles search_path
+    const { ingredient_name, unit_of_measure, current_stock, reorder_level, supplier, cost_price } = req.body;
 
     // Basic validation
     if (!ingredient_name || !unit_of_measure) {
@@ -67,9 +64,9 @@ exports.createIngredient = async (req, res) => {
         }
 
         const newIngredient = await db.query(
-            `INSERT INTO Ingredients (ingredient_name, unit_of_measure, current_stock, reorder_level, supplier)
-             VALUES ($1, $2, $3, $4, $5) RETURNING ingredient_id, ingredient_name`,
-            [ingredient_name, unit_of_measure, current_stock || 0, reorder_level || 0, supplier || null]
+            `INSERT INTO Ingredients (ingredient_name, unit_of_measure, current_stock, reorder_level, supplier, cost_price)
+             VALUES ($1, $2, $3, $4, $5, $6) RETURNING ingredient_id, ingredient_name, cost_price`,
+            [ingredient_name, unit_of_measure, current_stock || 0, reorder_level || 0, supplier || null, cost_price || 0.00]
         );
         res.status(201).json({
             message: 'Ingredient created successfully!',
@@ -86,8 +83,7 @@ exports.createIngredient = async (req, res) => {
 // @access  Private (Store Owner, Admin, Baker)
 exports.updateIngredient = async (req, res) => {
     const ingredientId = parseInt(req.params.id);
-    const { ingredient_name, unit_of_measure, current_stock, reorder_level, supplier } = req.body;
-    // No tenantId check here, as setTenantSchema middleware handles search_path
+    const { ingredient_name, unit_of_measure, current_stock, reorder_level, supplier, cost_price } = req.body;
 
     try {
         // Verify the ingredient exists within the current tenant's schema
@@ -108,17 +104,19 @@ exports.updateIngredient = async (req, res) => {
         if (current_stock !== undefined) { updateFields.push(`current_stock = $${paramIndex++}`); updateValues.push(current_stock); }
         if (reorder_level !== undefined) { updateFields.push(`reorder_level = $${paramIndex++}`); updateValues.push(reorder_level); }
         if (supplier !== undefined) { updateFields.push(`supplier = $${paramIndex++}`); updateValues.push(supplier); }
+        if (cost_price !== undefined) { updateFields.push(`cost_price = $${paramIndex++}`); updateValues.push(cost_price); }
+
 
         if (updateFields.length === 0) {
             return handleError(res, 400, 'No fields provided for update.');
         }
 
-        updateValues.push(ingredientId); 
+        updateValues.push(ingredientId); // Add ingredientId for WHERE clause
         const updateQuery = `
             UPDATE Ingredients
             SET ${updateFields.join(', ')}, updated_at = CURRENT_TIMESTAMP
             WHERE ingredient_id = $${paramIndex}
-            RETURNING ingredient_id, ingredient_name
+            RETURNING ingredient_id, ingredient_name, cost_price
         `;
 
         const updatedIngredient = await db.query(updateQuery, updateValues);
@@ -138,7 +136,6 @@ exports.updateIngredient = async (req, res) => {
 // @access  Private (Store Owner, Admin)
 exports.deleteIngredient = async (req, res) => {
     const ingredientId = parseInt(req.params.id);
-    // No tenantId check here, as setTenantSchema middleware handles search_path
 
     try {
         // Verify the ingredient belongs to the current tenant's schema
