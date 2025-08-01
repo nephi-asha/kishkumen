@@ -36,11 +36,11 @@ exports.getAllSales = async (req, res) => {
         const salesResult = await db.query(salesQuery, salesQueryParams);
         const sales = salesResult.rows;
 
-        // For each sale, fetch its associated items and product details
+        // For each sale, fetch its associated items and product details, including cost_price
         for (let i = 0; i < sales.length; i++) {
             const sale = sales[i];
             const saleItemsResult = await db.query(
-                `SELECT si.quantity, si.unit_price, p.product_id, p.product_name
+                `SELECT si.quantity, si.unit_price, p.product_id, p.product_name, p.cost_price
                  FROM Sale_Items si
                  JOIN Products p ON si.product_id = p.product_id
                  WHERE si.sale_id = $1`,
@@ -77,7 +77,7 @@ exports.getSaleById = async (req, res) => {
         const sale = saleResult.rows[0];
 
         const saleItemsResult = await db.query(
-            `SELECT si.quantity, si.unit_price, p.product_id, p.product_name
+            `SELECT si.quantity, si.unit_price, p.product_id, p.product_name, p.cost_price -- Added p.cost_price
              FROM Sale_Items si
              JOIN Products p ON si.product_id = p.product_id
              WHERE si.sale_id = $1`,
