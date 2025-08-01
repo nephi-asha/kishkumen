@@ -1,16 +1,39 @@
 const db = require('../database/db');
 const handleError = require('../utils/errorHandler');
 
-// @desc    Get all sales for the authenticated user's bakery
-// @route   GET /api/sales
+// @desc    Get all sales for the authenticated user's bakery, with optional date filtering
+// @route   GET /api/sales?startDate=YYYY-MM-DD&endDate=YYYY-MM-DD
 // @access  Private (Any authenticated user within a bakery)
 exports.getAllSales = async (req, res) => {
+    const { startDate, endDate } = req.query; // Extract startDate and endDate from query parameters
+
+    let query = `
+        SELECT sale_id, sale_date, total_amount, payment_method, cashier_user_id, created_at, updated_at
+        FROM Sales
+    `;
+    const queryParams = [];
+    let paramIndex = 1;
+
+    // Add WHERE clause for date filtering if parameters are provided
+    if (startDate || endDate) {
+        query += ` WHERE `;
+        if (startDate) {
+            query += `sale_date >= $${paramIndex++}`;
+            queryParams.push(startDate);
+        }
+        if (startDate && endDate) {
+            query += ` AND `;
+        }
+        if (endDate) {
+            query += `sale_date <= $${paramIndex++}`;
+            queryParams.push(endDate);
+        }
+    }
+
+    query += ` ORDER BY sale_date DESC`; // Always order by date
+
     try {
-        const sales = await db.query(
-            `SELECT sale_id, sale_date, total_amount, payment_method, cashier_user_id, created_at, updated_at
-             FROM Sales
-             ORDER BY sale_date DESC`
-        );
+        const sales = await db.query(query, queryParams);
         res.status(200).json(sales.rows);
     } catch (error) {
         console.error('Error fetching sales:', error);
