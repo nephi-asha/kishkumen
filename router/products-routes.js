@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const productController = require('../controller/product-controller');
+const productController = require('../controller/products-controller');
 const { authorizeRoles } = require('../middleware/auth');
 
 router.get('/', productController.getAllProducts);
