@@ -1,7 +1,7 @@
 const db = require('../database/db');
 const handleError = require('../utils/errorHandler');
 
-// Helper function to calculate recipe cost
+// Helper function to calculate recipe cost 
 async function calculateRecipeCost(recipeId) {
     console.log(`[DEBUG] calculateRecipeCost called for recipeId: ${recipeId}`);
     try {
@@ -17,7 +17,6 @@ async function calculateRecipeCost(recipeId) {
 
         let totalCost = 0;
         for (const item of ingredientsCostResult.rows) {
-            // Ensure cost_price is treated as a number
             const ingredientCost = parseFloat(item.cost_price || 0);
             console.log(`[DEBUG] Item: quantity=${item.quantity}, cost_price=${item.cost_price}, parsed_cost=${ingredientCost}`);
             totalCost += item.quantity * ingredientCost;
@@ -30,17 +29,48 @@ async function calculateRecipeCost(recipeId) {
     }
 }
 
-// @desc    Get all products for the authenticated user's bakery
+// @desc    Get all products for the authenticated user's bakery, including nested recipe and ingredient details
 // @route   GET /api/products
 // @access  Private (Any authenticated user within a bakery)
 exports.getAllProducts = async (req, res) => {
     try {
-        const products = await db.query(
+        const productsResult = await db.query(
             `SELECT product_id, product_name, description, unit_price, cost_price, is_active, recipe_id, created_at, updated_at
              FROM Products
              ORDER BY product_name`
         );
-        res.status(200).json(products.rows);
+        const products = productsResult.rows;
+
+        // For each product, fetch its associated recipe and ingredients if recipe_id exists
+        for (let i = 0; i < products.length; i++) {
+            const product = products[i];
+            if (product.recipe_id) {
+                // Fetch recipe details
+                const recipeResult = await db.query(
+                    `SELECT recipe_id, recipe_name, description, batch_size, created_at, updated_at
+                     FROM Recipes
+                     WHERE recipe_id = $1`,
+                    [product.recipe_id]
+                );
+
+                if (recipeResult.rows.length > 0) {
+                    const recipe = recipeResult.rows[0];
+
+                    // Fetch associated ingredients for this recipe with full details
+                    const ingredientsResult = await db.query(
+                        `SELECT ri.quantity, i.ingredient_id, i.ingredient_name, i.unit_of_measure, i.current_stock, i.reorder_level, i.supplier, i.cost_price, i.created_at, i.updated_at
+                         FROM Recipe_Ingredients ri
+                         JOIN Ingredients i ON ri.ingredient_id = i.ingredient_id
+                         WHERE ri.recipe_id = $1`,
+                        [recipe.recipe_id]
+                    );
+                    recipe.ingredients = ingredientsResult.rows;
+                    product.recipe_info = recipe; // Nest recipe and its ingredients under 'recipe_info'
+                }
+            }
+        }
+
+        res.status(200).json(products);
     } catch (error) {
         console.error('Error fetching products:', error);
         handleError(res, 500, 'Server error fetching products.');
@@ -54,17 +84,43 @@ exports.getProductById = async (req, res) => {
     const productId = parseInt(req.params.id);
 
     try {
-        const product = await db.query(
+        const productResult = await db.query(
             `SELECT product_id, product_name, description, unit_price, cost_price, is_active, recipe_id, created_at, updated_at
              FROM Products
              WHERE product_id = $1`,
             [productId]
         );
 
-        if (product.rows.length === 0) {
+        if (productResult.rows.length === 0) {
             return handleError(res, 404, 'Product not found.');
         }
-        res.status(200).json(product.rows[0]);
+        const product = productResult.rows[0];
+
+        // Fetch associated recipe and ingredients if recipe_id exists
+        if (product.recipe_id) {
+            const recipeResult = await db.query(
+                `SELECT recipe_id, recipe_name, description, batch_size, created_at, updated_at
+                 FROM Recipes
+                 WHERE recipe_id = $1`,
+                [product.recipe_id]
+            );
+
+            if (recipeResult.rows.length > 0) {
+                const recipe = recipeResult.rows[0];
+
+                const ingredientsResult = await db.query(
+                    `SELECT ri.quantity, i.ingredient_id, i.ingredient_name, i.unit_of_measure, i.current_stock, i.reorder_level, i.supplier, i.cost_price, i.created_at, i.updated_at
+                     FROM Recipe_Ingredients ri
+                     JOIN Ingredients i ON ri.ingredient_id = i.ingredient_id
+                     WHERE ri.recipe_id = $1`,
+                    [recipe.recipe_id]
+                );
+                recipe.ingredients = ingredientsResult.rows;
+                product.recipe_info = recipe;
+            }
+        }
+
+        res.status(200).json(product);
     } catch (error) {
         console.error('Error fetching product by ID:', error);
         handleError(res, 500, 'Server error fetching product.');
