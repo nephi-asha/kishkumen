@@ -186,9 +186,9 @@ router.post(
                     product_name VARCHAR(100) NOT NULL,
                     description TEXT,
                     unit_price DECIMAL(10, 2) NOT NULL,
-                    cost_price DECIMAL(10, 2) DEFAULT 0.00, -- Added cost_price for the product
+                    cost_price DECIMAL(10, 2) DEFAULT 0.00,
                     is_active BOOLEAN DEFAULT TRUE,
-                    recipe_id INT, -- Added to link product to a recipe
+                    recipe_id INT,
                     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
                     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
                 );
@@ -200,7 +200,7 @@ router.post(
                     current_stock DECIMAL(10, 2) DEFAULT 0,
                     reorder_level DECIMAL(10, 2),
                     supplier VARCHAR(100),
-                    cost_price DECIMAL(10, 2) DEFAULT 0.00, -- Added cost_price for the ingredient
+                    cost_price DECIMAL(10, 2) DEFAULT 0.00,
                     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
                     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
                 );
@@ -228,7 +228,7 @@ router.post(
                     sale_date TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
                     total_amount DECIMAL(10, 2) NOT NULL,
                     payment_method VARCHAR(50),
-                    cashier_user_id INT, -- Link to user who made the sale (if applicable)
+                    cashier_user_id INT,
                     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
                     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
                 );
@@ -248,7 +248,7 @@ router.post(
                     request_date TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
                     requested_by_user_id INT NOT NULL,
                     status VARCHAR(50) DEFAULT 'Pending' CHECK (status IN ('Pending', 'Approved', 'Rejected', 'Completed')),
-                    approval_required BOOLEAN DEFAULT FALSE, -- If owner approval is required
+                    approval_required BOOLEAN DEFAULT FALSE,
                     approved_by_user_id INT,
                     approval_date TIMESTAMP WITH TIME ZONE,
                     notes TEXT,
@@ -264,6 +264,18 @@ router.post(
                     unit_price_estimate DECIMAL(10, 2),
                     FOREIGN KEY (request_id) REFERENCES $1.Purchase_Requests(request_id) ON DELETE CASCADE,
                     FOREIGN KEY (ingredient_id) REFERENCES $1.Ingredients(ingredient_id) ON DELETE RESTRICT
+                );
+
+                -- NEW TABLE: Expenses
+                CREATE TABLE $1.Expenses (
+                    expense_id SERIAL PRIMARY KEY,
+                    expense_date TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+                    amount DECIMAL(10, 2) NOT NULL,
+                    description TEXT,
+                    category VARCHAR(100), -- e.g., 'Rent', 'Utilities', 'Marketing', 'Salaries', 'Repairs'
+                    cost_type VARCHAR(20) NOT NULL CHECK (cost_type IN ('Fixed', 'Variable')), -- Differentiates cost types
+                    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
                 );
 
                 -- Add foreign key for Products.recipe_id

@@ -6,6 +6,9 @@ const userRoutes = require("./user-routes");
 const recipeRoutes = require("./recipe-routes")
 const salesRoutes = require("./sales-routes");
 const purchase_requestsRoutes = require("./purchase-request-routes");
+const expenseRoutes = require("./expense-routes");
+const reportRoutes = require("./report-routes");
+
 
 router.get("/", (req, res) => {
   res.json("Welcome to Deseret 🐝🍯!");
@@ -18,5 +21,7 @@ router.use("/users", userRoutes);
 router.use("/recipes", recipeRoutes);
 router.use("/sales", salesRoutes); 
 router.use("/purchase-requests", purchase_requestsRoutes); 
+router.use("/expenses", expenseRoutes);
+router.use("/reports", reportRoutes);
 
 module.exports = router;
