@@ -130,6 +130,14 @@ exports.createSale = async (req, res) => {
                  VALUES ($1, $2, $3, $4)`,
                 [newSaleId, item.product_id, item.quantity, item.unit_price]
             );
+
+            // Update product quantity_left count
+            await db.query(
+                `UPDATE Products
+                 SET quantity_left = quantity_left - $1
+                 WHERE product_id = $2`,
+                [item.quantity, item.product_id]
+            );
         }
 
         await db.pool.query('COMMIT');
