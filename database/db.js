@@ -1,5 +1,5 @@
 const { Pool } = require("pg");
-const { param } = require("./auth-routes");
+const { param } = require("../router/auth-routes");
 require("dotenv").config();
 
 let pool;
