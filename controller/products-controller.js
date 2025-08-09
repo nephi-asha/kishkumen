@@ -35,7 +35,7 @@ async function calculateRecipeCost(recipeId) {
 exports.getAllProducts = async (req, res) => {
     try {
         const productsResult = await db.query(
-            `SELECT product_id, product_name, description, unit_price, cost_price, is_active, recipe_id, created_at, updated_at
+            `SELECT product_id, product_name, description, unit_price, cost_price, is_active, recipe_id, quantity_left, created_at, updated_at
              FROM Products
              ORDER BY product_name`
         );
@@ -85,7 +85,7 @@ exports.getProductById = async (req, res) => {
 
     try {
         const productResult = await db.query(
-            `SELECT product_id, product_name, description, unit_price, cost_price, is_active, recipe_id, created_at, updated_at
+            `SELECT product_id, product_name, description, unit_price, cost_price, is_active, recipe_id, quantity_left, created_at, updated_at
              FROM Products
              WHERE product_id = $1`,
             [productId]
