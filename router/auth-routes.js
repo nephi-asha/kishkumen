@@ -30,11 +30,19 @@ async function getUserRoles(userId) {
  *           schema:
  *             type: object
  *             required:
+ *               - firstName
+ *               - lastName
  *               - bakeryName
  *               - username
  *               - email
  *               - password
  *             properties:
+ *               firstName:
+ *                 type: string
+ *                 example: John
+ *               lastName:
+ *                 type: string
+ *                 example: Doe
  *               bakeryName:
  *                 type: string
  *                 example: Sweet Delights
@@ -118,6 +126,8 @@ async function getUserRoles(userId) {
 router.post(
     '/register',
     [
+        body('firstName').trim().notEmpty().withMessage('First name is required.'),
+        body('lastName').trim().notEmpty().withMessage('Last name is required.'),
         body('bakeryName').trim().notEmpty().withMessage('Bakery name is required.'),
         body('username').trim().isLength({ min: 3 }).withMessage('Username must be at least 3 characters long.'),
         body('email').isEmail().withMessage('Please enter a valid email address.'),
@@ -129,7 +139,7 @@ router.post(
             return res.status(400).json({ message: errors.array()[0].msg });
         }
 
-        const { bakeryName, username, email, password } = req.body;
+        const { firstName, lastName, bakeryName, username, email, password } = req.body;
         const schemaName = `bakery_${bakeryName.toLowerCase().replace(/[^a-z0-9_]/g, '')}_${Date.now()}`;
 
         try {
@@ -155,7 +165,7 @@ router.post(
 
             const newUserResult = await db.query(
                 'INSERT INTO Users (username, password_hash, email, first_name, last_name) VALUES ($1, $2, $3, $4, $5) RETURNING user_id, username',
-                [username, hashedPassword, email, username, 'Owner']
+                [username, hashedPassword, email, firstName, lastName]
             );
             const newUser = newUserResult.rows[0];
             const newUserId = newUser.user_id;
