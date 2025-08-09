@@ -176,11 +176,11 @@ exports.createProduct = async (req, res) => {
 // @access  Private (Store Owner, Admin)
 exports.updateProduct = async (req, res) => {
     const productId = parseInt(req.params.id);
-    const { product_name, description, unit_price, is_active, recipe_id } = req.body;
+    const { product_name, description, unit_price, is_active, recipe_id, quantity_left } = req.body;
 
     try {
         const existingProduct = await db.query(
-            'SELECT product_id, recipe_id FROM Products WHERE product_id = $1',
+            'SELECT product_id, recipe_id, quantity_left FROM Products WHERE product_id = $1',
             [productId]
         );
         if (existingProduct.rows.length === 0) {
@@ -196,6 +196,7 @@ exports.updateProduct = async (req, res) => {
         if (description !== undefined) { updateFields.push(`description = $${paramIndex++}`); updateValues.push(description); }
         if (unit_price !== undefined) { updateFields.push(`unit_price = $${paramIndex++}`); updateValues.push(unit_price); }
         if (is_active !== undefined) { updateFields.push(`is_active = $${paramIndex++}`); updateValues.push(is_active); }
+        if (quantity_left !== undefined) { updateFields.push(`quantity_left = $${paramIndex++}`); updateValues.push(quantity_left); }
 
         // If recipe_id is explicitly provided or changed, recalculate cost
         if (recipe_id !== undefined && recipe_id !== existingProduct.rows[0].recipe_id) {
@@ -219,6 +220,14 @@ exports.updateProduct = async (req, res) => {
             // Use the existing recipe_id for recalculation
             req.body.recipe_id_for_recalc = existingProduct.rows[0].recipe_id;
         }
+            else if (quantity_left === undefined && existingProduct.rows[0].quantity_left !== null) {
+                // If quantity_left is NOT provided in the update, but the product already HAS a quantity_left,
+                // we should still recalculate if the underlying ingredient costs or recipe quantities might have changed.
+                // This is a proactive recalculation.
+                recalculateCost = true;
+                // Use the existing quantity_left for recalculation
+                req.body.quantity_left_for_recalc = existingProduct.rows[0].quantity_left;
+        }
 
 
         if (recalculateCost) {
@@ -240,7 +249,7 @@ exports.updateProduct = async (req, res) => {
             UPDATE Products
             SET ${updateFields.join(', ')}, updated_at = CURRENT_TIMESTAMP
             WHERE product_id = $${paramIndex}
-            RETURNING product_id, product_name, cost_price
+            RETURNING product_id, product_name, cost_price, quantity_left
         `;
 
         const updatedProduct = await db.query(updateQuery, updateValues);
