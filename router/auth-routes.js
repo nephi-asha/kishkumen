@@ -287,7 +287,7 @@ router.post(
 
             const schemaCreationQueries = TENANT_SCHEMA_SQL.split(';').filter(q => q.trim().length > 0);
             for (const query of schemaCreationQueries) {
-                await db.query(query);
+                await db.query(query.replace(/\$1/g, schemaName));
             }
 
             await db.pool.query('COMMIT');
