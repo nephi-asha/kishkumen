@@ -7,7 +7,7 @@ const handleError = require('../utils/errorHandler');
 exports.getAllPurchaseRequests = async (req, res) => {
     const { state } = req.query;
 
-    const statusQuery = `SELECT * FROM purchase_requests`;
+    let statusQuery = `SELECT * FROM purchase_requests`;
     const statusParams = [];
 
     if (state) {
