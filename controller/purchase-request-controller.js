@@ -1,11 +1,6 @@
 const db = require('../database/db');
 const handleError = require('../utils/errorHandler');
 
-exports.getPurchaseRequestByStatus = await db.query(
-    `SELECT `
-)
-
-
 // @desc    Get all purchase requests for the authenticated user's bakery
 // @route   GET /api/purchase-requests
 // @access  Private (Store Owner, Admin, Baker)
