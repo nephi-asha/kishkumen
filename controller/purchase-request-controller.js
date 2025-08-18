@@ -1,22 +1,38 @@
 const db = require('../database/db');
 const handleError = require('../utils/errorHandler');
 
+exports.getPurchaseRequestByStatus = await db.query(
+    `SELECT `
+)
+
+
 // @desc    Get all purchase requests for the authenticated user's bakery
 // @route   GET /api/purchase-requests
 // @access  Private (Store Owner, Admin, Baker)
 exports.getAllPurchaseRequests = async (req, res) => {
+    const { state } = req.query;
+
+    const statusQuery = `SELECT * FROM purchase_requests`;
+    const statusParams = [];
+
+    if (state) {
+        statusQuery += ` WHERE state = $1`;
+        statusParams.push(state);
+    }
+
+    statusQuery += ` ORDER BY request_date DESC`;
+
     try {
-        const requests = await db.query(
-            `SELECT request_id, request_date, requested_by_user_id, status, approval_required, approved_by_user_id, approval_date, notes, created_at, updated_at
-             FROM Purchase_Requests
-             ORDER BY request_date DESC`
-        );
-        res.status(200).json(requests.rows);
+        const statusResult = await db.query(statusQuery, statusParams);
+        res.status(200).json(statusResult.rows);
     } catch (error) {
         console.error('Error fetching purchase requests:', error);
         handleError(res, 500, 'Server error fetching purchase requests.');
     }
 };
+
+
+
 
 // @desc    Get a single purchase request by ID, including its items
 // @route   GET /api/purchase-requests/:id

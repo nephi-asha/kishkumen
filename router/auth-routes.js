@@ -199,6 +199,7 @@ router.post(
                     unit_of_measure VARCHAR(20),
                     current_stock DECIMAL(10, 2) DEFAULT 0,
                     reorder_level DECIMAL(10, 2),
+                    refill_amount DECIMAL(10, 2) DEFAULT 0.00,
                     supplier VARCHAR(100),
                     cost_price DECIMAL(10, 2) DEFAULT 0.00,
                     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
