@@ -11,7 +11,7 @@ exports.getAllPurchaseRequests = async (req, res) => {
     const statusParams = [];
 
     if (state) {
-        statusQuery += ` WHERE state = $1`;
+        statusQuery += ` WHERE status = $1`;
         statusParams.push(state);
     }
 
