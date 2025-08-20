@@ -9,6 +9,7 @@ exports.getAllPurchaseRequests = async (req, res) => {
 
     let statusQuery = `
     SELECT
+        ing.ingredient_id,
 	    ing.ingredient_name,
 	    ing.refill_amount,
 	    ps.status,
@@ -82,7 +83,7 @@ exports.getPurchaseRequestById = async (req, res) => {
 // @route   POST /api/purchase-requests
 // @access  Private (Store Owner, Admin, Baker)
 exports.createPurchaseRequest = async (req, res) => {
-    const { status, approval_required, notes, items } = req.body; // 'items' is an array of { ingredient_id, quantity_requested, unit_price_estimate }
+    const { status, approval_required, notes, items, refill_amount } = req.body; // 'items' is an array of { ingredient_id, quantity_requested, unit_price_estimate }
     const requestedByUserId = req.user.userId;
 
     if (!Array.isArray(items) || items.length === 0) {
@@ -137,7 +138,7 @@ exports.createPurchaseRequest = async (req, res) => {
 // @access  Private (Store Owner, Admin, Baker) - status change for Owner/Admin
 exports.updatePurchaseRequest = async (req, res) => {
     const requestId = parseInt(req.params.id);
-    const { status, approval_required, approved_by_user_id, notes, items, refill_amount } = req.body;
+    const { status, approval_required, approved_by_user_id, notes, items, refill_amount, ingredient_id} = req.body;
     const { userId: currentUserId, roles: currentUserRoles } = req.user;
 
     try {
@@ -165,6 +166,11 @@ exports.updatePurchaseRequest = async (req, res) => {
 
         await db.pool.query('BEGIN');
 
+        await db.query(
+            `UPDATE ingredients SET refill_amount = $1 + refill_amount WHERE id = $2`,
+            [refill_amount, ingredient_id]
+        );
+
         const updateFields = [];
         const updateValues = [];
         let paramIndex = 1;
@@ -174,7 +180,6 @@ exports.updatePurchaseRequest = async (req, res) => {
         if (req.body.approved_by_user_id !== undefined) { updateFields.push(`approved_by_user_id = $${paramIndex++}`); updateValues.push(req.body.approved_by_user_id); }
         if (req.body.approval_date !== undefined) { updateFields.push(`approval_date = $${paramIndex++}`); updateValues.push(req.body.approval_date); }
         if (notes !== undefined) { updateFields.push(`notes = $${paramIndex++}`); updateValues.push(notes); }
-        if (refill_amount !== undefined) { updateFields.push(`refill_amount = $${paramIndex++}`); updateValues.push(refill_amount); }
 
         if (updateFields.length > 0) {
             const updateQuery = `
@@ -204,11 +209,6 @@ exports.updatePurchaseRequest = async (req, res) => {
                     `INSERT INTO Purchase_Request_Items (request_id, ingredient_id, quantity_requested, unit_price_estimate)
                      VALUES ($1, $2, $3, $4)`,
                     [requestId, item.ingredient_id, item.quantity_requested, item.unit_price_estimate || null]
-                );
-                await db.query(
-                    `INSERT INTO ingredients (ingredient_id, refill_amount)
-                     VALUES ($1, $2)`,
-                    [item.ingredient_id, item.refill_amount]
                 );
             }
         }
