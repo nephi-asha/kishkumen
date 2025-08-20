@@ -5,13 +5,14 @@ const handleError = require('../utils/errorHandler');
 // @route   GET /api/purchase-requests
 // @access  Private (Store Owner, Admin, Baker)
 exports.getAllPurchaseRequests = async (req, res) => {
-    const { state } = req.query;
+    const { status } = req.query;
 
     let statusQuery = `
     SELECT
         ing.ingredient_id,
 	    ing.ingredient_name,
 	    ing.refill_amount,
+        ing.cost_price,
 	    ps.status,
 	    ps.notes,
 	    ps.request_date
@@ -23,12 +24,12 @@ exports.getAllPurchaseRequests = async (req, res) => {
 
     const statusParams = [];
 
-    if (state) {
+    if (status) {
         statusQuery += ` WHERE ps.status = $1`;
-        statusParams.push(state);
+        statusParams.push(status);
     }
 
-    statusQuery += ` ORDER BY request_date DESC`;
+    statusQuery += ` ORDER BY ps.request_date DESC`;
 
     try {
         const statusResult = await db.query(statusQuery, statusParams);
@@ -133,13 +134,64 @@ exports.createPurchaseRequest = async (req, res) => {
     }
 };
 
+exports.markAllRequestsApproved = async (req, res) => {
+    const { userId: currentUserId, roles: currentUserRoles } = req.user;
+
+    // Authorization: Only Store Owner/Admin can approve requests
+    if (!currentUserRoles.includes('Store Owner') && !currentUserRoles.includes('Admin')) {
+        return handleError(res, 403, 'Access denied: Only Store Owners or Admins can approve requests.');
+    }
+
+    try {
+        await db.pool.query('BEGIN');
+
+        // Get all pending purchase requests
+        const pendingRequests = await db.query(
+            `SELECT request_id FROM Purchase_Requests WHERE status = 'Pending'`
+        );
+
+        // For each pending request, update status and refill_amount
+        for (const reqRow of pendingRequests.rows) {
+            const requestId = reqRow.request_id;
+
+            // Update the request status to Approved
+            await db.query(
+                `UPDATE Purchase_Requests SET status = 'Approved', approved_by_user_id = $1, approval_date = CURRENT_TIMESTAMP WHERE request_id = $2`,
+                [currentUserId, requestId]
+            );
+
+            // Get all items for this request
+            const itemsResult = await db.query(
+                `SELECT ingredient_id, quantity_requested FROM Purchase_Request_Items WHERE request_id = $1`,
+                [requestId]
+            );
+
+            // For each item, update the ingredient's refill_amount
+            for (const item of itemsResult.rows) {
+                await db.query(
+                    `UPDATE Ingredients SET refill_amount = COALESCE(refill_amount,0) + $1 WHERE ingredient_id = $2`,
+                    [item.quantity_requested, item.ingredient_id]
+                );
+            }
+        }
+
+        await db.pool.query('COMMIT');
+        res.status(200).json({ message: 'All pending purchase requests have been approved and ingredient refill amounts updated.' });
+    } catch (error) {
+        await db.pool.query('ROLLBACK');
+        console.error('Error marking all requests as approved:', error);
+        handleError(res, 500, 'Server error marking all requests as approved.');
+    }
+};
+
 // @desc    Update an existing purchase request
 // @route   PUT /api/purchase-requests/:id
 // @access  Private (Store Owner, Admin, Baker) - status change for Owner/Admin
 exports.updatePurchaseRequest = async (req, res) => {
     const requestId = parseInt(req.params.id);
-    const { status, approval_required, approved_by_user_id, notes, items, refill_amount, ingredient_id} = req.body;
+    const { status, approval_required, approved_by_user_id, notes, items} = req.body;
     const { userId: currentUserId, roles: currentUserRoles } = req.user;
+
 
     try {
         const existingRequestResult = await db.query(
@@ -151,11 +203,16 @@ exports.updatePurchaseRequest = async (req, res) => {
         }
 
         const existingRequest = existingRequestResult.rows[0];
+        let shouldUpdateRefill = false;
 
         // Authorization for status change: Only Store Owner/Admin can approve/reject
         if (status && status !== existingRequest.status) {
             if (!currentUserRoles.includes('Store Owner') && !currentUserRoles.includes('Admin')) {
                 return handleError(res, 403, 'Access denied: Only Store Owners or Admins can change request status.');
+            }
+            // If status is changed from Pending to Approved, set flag to update refill_amount
+            if (existingRequest.status === 'Pending' && status === 'Approved') {
+                shouldUpdateRefill = true;
             }
             // If status is changed to Approved/Rejected, set approved_by_user_id and approval_date
             if (status === 'Approved' || status === 'Rejected') {
@@ -165,11 +222,6 @@ exports.updatePurchaseRequest = async (req, res) => {
         }
 
         await db.pool.query('BEGIN');
-
-        await db.query(
-            `UPDATE ingredients SET refill_amount = $1 + refill_amount WHERE ingredient_id = $2`,
-            [refill_amount, ingredient_id]
-        );
 
         const updateFields = [];
         const updateValues = [];
@@ -183,13 +235,28 @@ exports.updatePurchaseRequest = async (req, res) => {
 
         if (updateFields.length > 0) {
             const updateQuery = `
-                UPDATE Purchase_Requests
-                SET ${updateFields.join(', ')}, updated_at = CURRENT_TIMESTAMP,
+                UPDATE purchase_requests
+                SET ${updateFields.join(', ')}, updated_at = CURRENT_TIMESTAMP
                 WHERE request_id = $${paramIndex}
                 RETURNING request_id
             `;
             updateValues.push(requestId);
             await db.query(updateQuery, updateValues);
+        }
+
+        // If status changed from Pending to Approved, update refill_amount for each ingredient in the request
+        if (shouldUpdateRefill) {
+            // Get all items for this request
+            const itemsResult = await db.query(
+                `SELECT ingredient_id, quantity_requested FROM Purchase_Request_Items WHERE request_id = $1`,
+                [requestId]
+            );
+            for (const item of itemsResult.rows) {
+                await db.query(
+                    `UPDATE Ingredients SET refill_amount = COALESCE(refill_amount,0) + $1 WHERE ingredient_id = $2`,
+                    [item.quantity_requested, item.ingredient_id]
+                );
+            }
         }
 
         // Update request items if provided
