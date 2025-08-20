@@ -7,11 +7,23 @@ const handleError = require('../utils/errorHandler');
 exports.getAllPurchaseRequests = async (req, res) => {
     const { state } = req.query;
 
-    let statusQuery = `SELECT * FROM purchase_requests`;
+    let statusQuery = `
+    SELECT
+	    ing.ingredient_name,
+	    ing.refill_amount,
+	    ps.status,
+	    ps.notes,
+	    ps.request_date
+    FROM ingredients as ing
+    INNER JOIN purchase_request_items as prs
+    ON ing.ingredient_id = prs.ingredient_id
+    INNER JOIN purchase_requests as ps
+    ON prs.request_id = ps.request_id `;
+
     const statusParams = [];
 
     if (state) {
-        statusQuery += ` WHERE status = $1`;
+        statusQuery += ` WHERE ps.status = $1`;
         statusParams.push(state);
     }
 
@@ -125,7 +137,7 @@ exports.createPurchaseRequest = async (req, res) => {
 // @access  Private (Store Owner, Admin, Baker) - status change for Owner/Admin
 exports.updatePurchaseRequest = async (req, res) => {
     const requestId = parseInt(req.params.id);
-    const { status, approval_required, approved_by_user_id, notes, items } = req.body;
+    const { status, approval_required, approved_by_user_id, notes, items, refill_amount } = req.body;
     const { userId: currentUserId, roles: currentUserRoles } = req.user;
 
     try {
@@ -162,11 +174,12 @@ exports.updatePurchaseRequest = async (req, res) => {
         if (req.body.approved_by_user_id !== undefined) { updateFields.push(`approved_by_user_id = $${paramIndex++}`); updateValues.push(req.body.approved_by_user_id); }
         if (req.body.approval_date !== undefined) { updateFields.push(`approval_date = $${paramIndex++}`); updateValues.push(req.body.approval_date); }
         if (notes !== undefined) { updateFields.push(`notes = $${paramIndex++}`); updateValues.push(notes); }
+        if (refill_amount !== undefined) { updateFields.push(`refill_amount = $${paramIndex++}`); updateValues.push(refill_amount); }
 
         if (updateFields.length > 0) {
             const updateQuery = `
                 UPDATE Purchase_Requests
-                SET ${updateFields.join(', ')}, updated_at = CURRENT_TIMESTAMP
+                SET ${updateFields.join(', ')}, updated_at = CURRENT_TIMESTAMP,
                 WHERE request_id = $${paramIndex}
                 RETURNING request_id
             `;
@@ -191,6 +204,11 @@ exports.updatePurchaseRequest = async (req, res) => {
                     `INSERT INTO Purchase_Request_Items (request_id, ingredient_id, quantity_requested, unit_price_estimate)
                      VALUES ($1, $2, $3, $4)`,
                     [requestId, item.ingredient_id, item.quantity_requested, item.unit_price_estimate || null]
+                );
+                await db.query(
+                    `INSERT INTO ingredients (ingredient_id, refill_amount)
+                     VALUES ($1, $2)`,
+                    [item.ingredient_id, item.refill_amount]
                 );
             }
         }
