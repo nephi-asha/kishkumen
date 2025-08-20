@@ -5,7 +5,7 @@ const handleError = require('../utils/errorHandler');
 // @route   GET /api/sales?startDate=YYYY-MM-DD&endDate=YYYY-MM-DD
 // @access  Private (Any authenticated user within a bakery)
 exports.getAllSales = async (req, res) => {
-    const { startDate, endDate } = req.query; // Extract startDate and endDate from query parameters
+    const { startDate, endDate } = req.query;
 
     let salesQuery = `
         SELECT sale_id, sale_date, total_amount, payment_method, cashier_user_id, created_at, updated_at
@@ -14,7 +14,6 @@ exports.getAllSales = async (req, res) => {
     const salesQueryParams = [];
     let paramIndex = 1;
 
-    // Add WHERE clause for date filtering if parameters are provided
     if (startDate || endDate) {
         salesQuery += ` WHERE `;
         if (startDate) {
@@ -25,18 +24,20 @@ exports.getAllSales = async (req, res) => {
             salesQuery += ` AND `;
         }
         if (endDate) {
-            salesQuery += `sale_date <= $${paramIndex++}`;
-            salesQueryParams.push(endDate);
+            const adjustedEndDate = new Date(endDate);
+            adjustedEndDate.setDate(adjustedEndDate.getDate() + 1);
+            
+            salesQuery += `sale_date < $${paramIndex++}`;
+            salesQueryParams.push(adjustedEndDate.toISOString().split('T')[0]);
         }
     }
 
-    salesQuery += ` ORDER BY sale_date DESC`; // Always order by date
+    salesQuery += ` ORDER BY sale_date DESC`;
 
     try {
         const salesResult = await db.query(salesQuery, salesQueryParams);
         const sales = salesResult.rows;
 
-        // For each sale, fetch its associated items and product details, including cost_price
         for (let i = 0; i < sales.length; i++) {
             const sale = sales[i];
             const saleItemsResult = await db.query(
@@ -46,10 +47,10 @@ exports.getAllSales = async (req, res) => {
                  WHERE si.sale_id = $1`,
                 [sale.sale_id]
             );
-            sale.items = saleItemsResult.rows; // Attach the fetched items to the current sale object
+            sale.items = saleItemsResult.rows;
         }
 
-        res.status(200).json(sales); // Send the sales array with nested items
+        res.status(200).json(sales);
     } catch (error) {
         console.error('Error fetching sales:', error);
         handleError(res, 500, 'Server error fetching sales.');
