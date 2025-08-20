@@ -167,7 +167,7 @@ exports.updatePurchaseRequest = async (req, res) => {
         await db.pool.query('BEGIN');
 
         await db.query(
-            `UPDATE ingredients SET refill_amount = $1 + refill_amount WHERE id = $2`,
+            `UPDATE ingredients SET refill_amount = $1 + refill_amount WHERE ingredient_id = $2`,
             [refill_amount, ingredient_id]
         );
 
