@@ -13,6 +13,10 @@ router.get('/:id', authorizeRoles(['Store Owner', 'Admin', 'Baker']), purchaseRe
 // Accessible by Store Owners, Admins, and Bakers
 router.post('/', authorizeRoles(['Store Owner', 'Admin', 'Baker']), purchaseRequestController.createPurchaseRequest);
 
+// APPROVE all pending purchase requests
+// Only Store Owners and Admins can approve all requests
+router.post('/approve-all', authorizeRoles(['Store Owner', 'Admin']), purchaseRequestController.markAllRequestsApproved);
+
 // UPDATE purchase request by ID
 // Accessible by Store Owners, Admins, and Bakers. Status changes restricted to Owner/Admin.
 router.put('/:id', authorizeRoles(['Store Owner', 'Admin', 'Baker']), purchaseRequestController.updatePurchaseRequest);
@@ -22,3 +26,4 @@ router.put('/:id', authorizeRoles(['Store Owner', 'Admin', 'Baker']), purchaseRe
 router.delete('/:id', authorizeRoles(['Store Owner', 'Admin']), purchaseRequestController.deletePurchaseRequest);
 
 module.exports = router;
+
