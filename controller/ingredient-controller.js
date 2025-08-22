@@ -174,3 +174,22 @@ exports.deleteIngredient = async (req, res) => {
         handleError(res, 500, 'Server error deleting ingredient.');
     }
 };
+
+exports.refillIngredientStock = async (req, res) => {
+    const {ingredient_id, refill_amount } = req.body;
+
+    if(refill_amount <= 0) {
+        return handleError(res, 400, 'Invalid refill amount.');
+    }
+
+    try {
+        await db.query(
+            `UPDATE Ingredients SET current_stock = current_stock + $1, updated_at = CURRENT_TIMESTAMP WHERE ingredient_id = $2`,
+            [refill_amount, ingredient_id]
+        );
+        res.status(200).json({ message: 'Ingredient stock refilled successfully!' });
+    } catch (error) {
+        console.error('Error refilling ingredient stock:', error);
+        handleError(res, 500, 'Server error refilling ingredient stock.');
+    }
+};

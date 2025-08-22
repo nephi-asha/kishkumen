@@ -13,6 +13,14 @@ router.get('/:id', authorizeRoles(['Store Owner', 'Admin', 'Baker']), purchaseRe
 // Accessible by Store Owners, Admins, and Bakers
 router.post('/', authorizeRoles(['Store Owner', 'Admin', 'Baker']), purchaseRequestController.createPurchaseRequest);
 
+// APPROVE  a specific purchase request
+// Only Store Owners and Admins can reject requests
+router.post('/approve/:id', authorizeRoles(['Store Owner', 'Admin']), purchaseRequestController.approveRequest);
+    
+// REJECT a specific purchase request
+// Only Store Owners and Admins can reject requests
+router.post('/reject/:id', authorizeRoles(['Store Owner', 'Admin']), purchaseRequestController.rejectRequest);
+
 // APPROVE all pending purchase requests
 // Only Store Owners and Admins can approve all requests
 router.post('/approve-all', authorizeRoles(['Store Owner', 'Admin']), purchaseRequestController.markAllRequestsApproved);

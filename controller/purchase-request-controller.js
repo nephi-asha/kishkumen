@@ -184,6 +184,76 @@ exports.markAllRequestsApproved = async (req, res) => {
     }
 };
 
+exports.approveRequest = async (req, res) => {
+    const { userId: currentUserId, roles: currentUserRoles } = req.user;
+
+    // Authorization: Only Store Owner/Admin can approve requests
+    if (!currentUserRoles.includes('Store Owner') && !currentUserRoles.includes('Admin')) {
+        return handleError(res, 403, 'Access denied: Only Store Owners or Admins can approve requests.');
+    }
+
+    const requestId = parseInt(req.params.id);
+
+    try {
+        await db.pool.query('BEGIN');
+
+        // Update the request status to Approved
+        await db.query(
+            `UPDATE Purchase_Requests SET status = 'Approved', approved_by_user_id = $1, approval_date = CURRENT_TIMESTAMP WHERE request_id = $2`,
+            [currentUserId, requestId]
+        );
+
+        // Get all items for this request
+        const itemsResult = await db.query(
+            `SELECT ingredient_id, quantity_requested FROM Purchase_Request_Items WHERE request_id = $1`,
+            [requestId]
+        );
+
+        // For each item, update the ingredient's refill_amount
+        for (const item of itemsResult.rows) {
+            await db.query(
+                `UPDATE Ingredients SET refill_amount = COALESCE(refill_amount,0) + $1 WHERE ingredient_id = $2`,
+                [item.quantity_requested, item.ingredient_id]
+            );
+        }
+
+        await db.pool.query('COMMIT');
+        res.status(200).json({ message: 'Purchase request approved and ingredient refill amounts updated.' });
+    } catch (error) {
+        await db.pool.query('ROLLBACK');
+        console.error('Error approving purchase request:', error);
+        handleError(res, 500, 'Server error approving purchase request.');
+    }
+};
+
+exports.rejectRequest = async (req, res) => {
+    const { userId: currentUserId, roles: currentUserRoles } = req.user;
+
+    // Authorization: Only Store Owner/Admin can reject requests
+    if (!currentUserRoles.includes('Store Owner') && !currentUserRoles.includes('Admin')) {
+        return handleError(res, 403, 'Access denied: Only Store Owners or Admins can reject requests.');
+    }
+
+    const requestId = parseInt(req.params.id);
+
+    try {
+        await db.pool.query('BEGIN');
+
+        // Update the request status to Rejected
+        await db.query(
+            `UPDATE Purchase_Requests SET status = 'Rejected', approved_by_user_id = $1, approval_date = CURRENT_TIMESTAMP WHERE request_id = $2`,
+            [currentUserId, requestId]
+        );
+
+        await db.pool.query('COMMIT');
+        res.status(200).json({ message: 'Purchase request rejected.' });
+    } catch (error) {
+        await db.pool.query('ROLLBACK');
+        console.error('Error rejecting purchase request:', error);
+        handleError(res, 500, 'Server error rejecting purchase request.');
+    }
+};
+
 // @desc    Update an existing purchase request
 // @route   PUT /api/purchase-requests/:id
 // @access  Private (Store Owner, Admin, Baker) - status change for Owner/Admin
