@@ -15,7 +15,7 @@ router.get('/:id', ingredientController.getIngredientById);
 // Only Store Owners, Admins, and Bakers can create ingredients
 router.post('/', authorizeRoles(['Store Owner', 'Admin', 'Baker']), ingredientController.createIngredient);
 
-router.post('/:id/refill', authorizeRoles(['Store Owner', 'Admin', 'Baker']), ingredientController.refillIngredientStock);
+router.post('/refill/:id', authorizeRoles(['Store Owner', 'Admin', 'Baker']), ingredientController.refillIngredientStock);
 
 // UPDATE ingredient by ID
 // Only Store Owners, Admins, and Bakers can update ingredients
