@@ -15,6 +15,7 @@ exports.getAllPurchaseRequests = async (req, res) => {
         ing.cost_price,
 	    ps.status,
 	    ps.notes,
+        ps.request_id,
 	    ps.request_date
     FROM ingredients as ing
     INNER JOIN purchase_request_items as prs
