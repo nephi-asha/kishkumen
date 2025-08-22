@@ -176,7 +176,8 @@ exports.deleteIngredient = async (req, res) => {
 };
 
 exports.refillIngredientStock = async (req, res) => {
-    const {ingredient_id, refill_amount } = req.body;
+    const ingredient_id = parseInt(req.params.id);
+    const { refill_amount } = req.query;
 
     if(refill_amount <= 0) {
         return handleError(res, 400, 'Invalid refill amount.');
