@@ -181,108 +181,109 @@ router.post(
             const TENANT_SCHEMA_SQL = `
                 CREATE SCHEMA IF NOT EXISTS $1;
 
-                CREATE TABLE $1.Products (
-                    product_id SERIAL PRIMARY KEY,
-                    product_name VARCHAR(100) NOT NULL,
-                    description TEXT,
-                    unit_price DECIMAL(10, 2) NOT NULL,
-                    cost_price DECIMAL(10, 2) DEFAULT 0.00,
-                    is_active BOOLEAN DEFAULT TRUE,
-                    recipe_id INT,
-                    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-                    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-                );
+CREATE TABLE Products (
+                product_id SERIAL PRIMARY KEY,
+                product_name VARCHAR(100) NOT NULL,
+                description TEXT,
+                unit_price DECIMAL(10, 2) NOT NULL,
+                cost_price DECIMAL(10, 2) DEFAULT 0.00,
+                is_active BOOLEAN DEFAULT TRUE,
+                recipe_id INT,
+                quantity_left INT DEFAULT 0,
+                sold_count INT DEFAULT 0,
+                created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+            );
 
-                CREATE TABLE $1.Ingredients (
-                    ingredient_id SERIAL PRIMARY KEY,
-                    ingredient_name VARCHAR(100) UNIQUE NOT NULL,
-                    unit_of_measure VARCHAR(20),
-                    current_stock DECIMAL(10, 2) DEFAULT 0,
-                    reorder_level DECIMAL(10, 2),
-                    refill_amount DECIMAL(10, 2) DEFAULT 0.00,
-                    supplier VARCHAR(100),
-                    cost_price DECIMAL(10, 2) DEFAULT 0.00,
-                    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-                    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-                );
+            CREATE TABLE Ingredients (
+                ingredient_id SERIAL PRIMARY KEY,
+                ingredient_name VARCHAR(100) UNIQUE NOT NULL,
+                unit_of_measure VARCHAR(20),
+                current_stock DECIMAL(10, 2) DEFAULT 0,
+                reorder_level DECIMAL(10, 2),
+                supplier VARCHAR(100),
+                cost_price DECIMAL(10, 2) DEFAULT 0.00,
+                created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+            );
 
-                CREATE TABLE $1.Recipes (
-                    recipe_id SERIAL PRIMARY KEY,
-                    recipe_name VARCHAR(100) NOT NULL,
-                    description TEXT,
-                    batch_size VARCHAR(50),
-                    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-                    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-                );
+            CREATE TABLE Recipes (
+                recipe_id SERIAL PRIMARY KEY,
+                recipe_name VARCHAR(100) NOT NULL,
+                description TEXT,
+                batch_size VARCHAR(50),
+                created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+            );
 
-                CREATE TABLE $1.Recipe_Ingredients (
-                    recipe_ingredient_id SERIAL PRIMARY KEY,
-                    recipe_id INT NOT NULL,
-                    ingredient_id INT NOT NULL,
-                    quantity DECIMAL(10, 2) NOT NULL,
-                    FOREIGN KEY (recipe_id) REFERENCES $1.Recipes(recipe_id) ON DELETE CASCADE,
-                    FOREIGN KEY (ingredient_id) REFERENCES $1.Ingredients(ingredient_id) ON DELETE RESTRICT
-                );
+            CREATE TABLE Recipe_Ingredients (
+                recipe_ingredient_id SERIAL PRIMARY KEY,
+                recipe_id INT NOT NULL,
+                ingredient_id INT NOT NULL,
+                quantity DECIMAL(10, 2) NOT NULL,
+                FOREIGN KEY (recipe_id) REFERENCES Recipes(recipe_id) ON DELETE CASCADE,
+                FOREIGN KEY (ingredient_id) REFERENCES Ingredients(ingredient_id) ON DELETE RESTRICT
+            );
 
-                CREATE TABLE $1.Sales (
-                    sale_id SERIAL PRIMARY KEY,
-                    sale_date TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-                    total_amount DECIMAL(10, 2) NOT NULL,
-                    payment_method VARCHAR(50),
-                    cashier_user_id INT,
-                    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-                    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-                );
+            CREATE TABLE Sales (
+                sale_id SERIAL PRIMARY KEY,
+                sale_date TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+                total_amount DECIMAL(10, 2) NOT NULL,
+                payment_method VARCHAR(50),
+                cashier_user_id INT,
+                created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+            );
 
-                CREATE TABLE $1.Sale_Items (
-                    sale_item_id SERIAL PRIMARY KEY,
-                    sale_id INT NOT NULL,
-                    product_id INT NOT NULL,
-                    quantity INT NOT NULL,
-                    unit_price DECIMAL(10, 2) NOT NULL,
-                    FOREIGN KEY (sale_id) REFERENCES $1.Sales(sale_id) ON DELETE CASCADE,
-                    FOREIGN KEY (product_id) REFERENCES $1.Products(product_id) ON DELETE RESTRICT
-                );
+            CREATE TABLE Sale_Items (
+                sale_item_id SERIAL PRIMARY KEY,
+                sale_id INT NOT NULL,
+                product_id INT NOT NULL,
+                quantity INT NOT NULL,
+                unit_price DECIMAL(10, 2) NOT NULL,
+                cost_price DECIMAL(10, 2) NOT NULL,
+                FOREIGN KEY (sale_id) REFERENCES Sales(sale_id) ON DELETE CASCADE,
+                FOREIGN KEY (product_id) REFERENCES Products(product_id) ON DELETE RESTRICT
+            );
 
-                CREATE TABLE $1.Purchase_Requests (
-                    request_id SERIAL PRIMARY KEY,
-                    request_date TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-                    requested_by_user_id INT NOT NULL,
-                    status VARCHAR(50) DEFAULT 'Pending' CHECK (status IN ('Pending', 'Approved', 'Rejected', 'Completed')),
-                    approval_required BOOLEAN DEFAULT FALSE,
-                    approved_by_user_id INT,
-                    approval_date TIMESTAMP WITH TIME ZONE,
-                    notes TEXT,
-                    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-                    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-                );
+            CREATE TABLE Purchase_Requests (
+                request_id SERIAL PRIMARY KEY,
+                request_date TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+                requested_by_user_id INT NOT NULL,
+                status VARCHAR(50) DEFAULT 'Pending' CHECK (status IN ('Pending', 'Approved', 'Rejected', 'Completed')),
+                approval_required BOOLEAN DEFAULT FALSE,
+                approved_by_user_id INT,
+                approval_date TIMESTAMP WITH TIME ZONE,
+                notes TEXT,
+                created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+            );
 
-                CREATE TABLE $1.Purchase_Request_Items (
-                    request_item_id SERIAL PRIMARY KEY,
-                    request_id INT NOT NULL,
-                    ingredient_id INT NOT NULL,
-                    quantity_requested DECIMAL(10, 2) NOT NULL,
-                    unit_price_estimate DECIMAL(10, 2),
-                    FOREIGN KEY (request_id) REFERENCES $1.Purchase_Requests(request_id) ON DELETE CASCADE,
-                    FOREIGN KEY (ingredient_id) REFERENCES $1.Ingredients(ingredient_id) ON DELETE RESTRICT
-                );
+            CREATE TABLE Purchase_Request_Items (
+                request_item_id SERIAL PRIMARY KEY,
+                request_id INT NOT NULL,
+                ingredient_id INT NOT NULL,
+                quantity_requested DECIMAL(10, 2) NOT NULL,
+                unit_price_estimate DECIMAL(10, 2),
+                FOREIGN KEY (request_id) REFERENCES Purchase_Requests(request_id) ON DELETE CASCADE,
+                FOREIGN KEY (ingredient_id) REFERENCES Ingredients(ingredient_id) ON DELETE RESTRICT
+            );
 
-                -- NEW TABLE: Expenses
-                CREATE TABLE $1.Expenses (
-                    expense_id SERIAL PRIMARY KEY,
-                    expense_date TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-                    amount DECIMAL(10, 2) NOT NULL,
-                    description TEXT,
-                    category VARCHAR(100), -- e.g., 'Rent', 'Utilities', 'Marketing', 'Salaries', 'Repairs'
-                    cost_type VARCHAR(20) NOT NULL CHECK (cost_type IN ('Fixed', 'Variable')), -- Differentiates cost types
-                    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-                    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-                );
+            CREATE TABLE $1.Expenses (
+                expense_id SERIAL PRIMARY KEY,
+                expense_date TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+                amount DECIMAL(10, 2) NOT NULL,
+                description TEXT,
+                category VARCHAR(100), -- e.g., 'Rent', 'Utilities', 'Marketing', 'Salaries', 'Repairs'
+                cost_type VARCHAR(20) NOT NULL CHECK (cost_type IN ('Fixed', 'Variable')), -- Differentiates cost types
+                created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+            );
 
-                -- Add foreign key for Products.recipe_id
-                ALTER TABLE $1.Products
-                ADD CONSTRAINT fk_products_recipe
-                FOREIGN KEY (recipe_id) REFERENCES $1.Recipes(recipe_id) ON DELETE SET NULL;
+            -- Add foreign key for Products.recipe_id
+            ALTER TABLE $1.Products
+            ADD CONSTRAINT fk_products_recipe
+            FOREIGN KEY (recipe_id) REFERENCES $1.Recipes(recipe_id) ON DELETE SET NULL;
             `;
 
 
