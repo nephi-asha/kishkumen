@@ -185,7 +185,12 @@ exports.refillIngredientStock = async (req, res) => {
 
     try {
         await db.query(
-            `UPDATE Ingredients SET current_stock = current_stock + refill_amount, updated_at = CURRENT_TIMESTAMP WHERE ingredient_id = $1`,
+            `UPDATE Ingredients 
+            SET 
+            current_stock = current_stock + refill_amount,
+            refill_amount = 0,
+            updated_at = CURRENT_TIMESTAMP 
+            WHERE ingredient_id = $1`,
             [ingredient_id]
         );
         res.status(200).json({ message: 'Ingredient stock refilled successfully!' });
