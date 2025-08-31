@@ -49,7 +49,7 @@ exports.addStaffMember = async (req, res) => {
 
         // Changed column name from bakery_id to tenant_id
         const newUserResult = await db.query(
-            'INSERT INTO Users (username, password_hash, email, first_name, last_name, tenant_id) VALUES ($1, $2, $3, $4, $5, $6) RETURNING user_id, first_name, last_name, ',
+            'INSERT INTO Users (username, password_hash, email, first_name, last_name, tenant_id) VALUES ($1, $2, $3, $4, $5, $6) RETURNING user_id, first_name, last_name',
             [username, hashedPassword, email, firstName, lastName, tenantId]
         );
         const newUserId = newUserResult.rows[0].user_id;
