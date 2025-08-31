@@ -30,7 +30,7 @@ async function assignRolesToUser(userId, roles) {
 // @route   POST /api/users/add-staff
 // @access  Private (Store Owner, Admin)
 exports.addStaffMember = async (req, res) => {
-    const { username, email, password, firstName, lastName, roles } = req.body;
+    const { username, email, password, first_name, last_name, roles } = req.body;
     const tenantId = req.user.tenantId;
 
     if (roles && (roles.includes('Store Owner') || roles.includes('Super Admin'))) {
@@ -50,13 +50,13 @@ exports.addStaffMember = async (req, res) => {
         // Changed column name from bakery_id to tenant_id
         const newUserResult = await db.query(
             'INSERT INTO Users (username, password_hash, email, first_name, last_name, tenant_id) VALUES ($1, $2, $3, $4, $5, $6) RETURNING user_id, first_name, last_name',
-            [username, hashedPassword, email, firstName, lastName, tenantId]
+            [username, hashedPassword, email, first_name, last_name, tenantId]
         );
         const newUserId = newUserResult.rows[0].user_id;
         const newUserDetail = {
             user_id: newUserId,
-            first_name: firstName,
-            last_name: lastName,
+            first_name: first_name,
+            last_name: last_name,
             roles: roles || []
         };
 
