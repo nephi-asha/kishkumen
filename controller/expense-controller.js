@@ -4,11 +4,13 @@ const handleError = require('../utils/errorHandler');
 // @desc    Get all expenses for the authenticated user's bakery
 // @route   GET /api/expenses?startDate=YYYY-MM-DD&endDate=YYYY-MM-DD&costType=Fixed/Variable&category=Rent
 // @access  Private (Store Owner, Admin, Baker)
+
+
 exports.getAllExpenses = async (req, res) => {
     const { startDate, endDate, costType, category } = req.query;
 
     let query = `
-        SELECT expense_id, expense_date, amount, description, category, cost_type, created_at, updated_at
+        SELECT expense_id, expense_date, amount, description, category, cost_type, frequency, created_at, updated_at
         FROM Expenses
     `;
     const queryParams = [];
@@ -55,7 +57,7 @@ exports.getExpenseById = async (req, res) => {
 
     try {
         const expense = await db.query(
-            `SELECT expense_id, expense_date, amount, description, category, cost_type, created_at, updated_at
+            `SELECT expense_id, expense_date, amount, description, category, cost_type, frequency, created_at, updated_at
              FROM Expenses
              WHERE expense_id = $1`,
             [expenseId]
@@ -83,9 +85,9 @@ exports.createExpense = async (req, res) => {
 
     try {
         const newExpense = await db.query(
-            `INSERT INTO Expenses (expense_date, amount, description, category, cost_type)
-             VALUES ($1, $2, $3, $4, $5) RETURNING expense_id, expense_date, amount, cost_type`,
-            [expense_date || new Date(), amount, description || null, category || null, cost_type]
+            `INSERT INTO Expenses (expense_date, amount, description, category, cost_type, frequency)
+             VALUES ($1, $2, $3, $4, $5, $6) RETURNING expense_id, expense_date, amount, cost_type, frequency`,
+            [expense_date || new Date(), amount, description || null, category || null, cost_type, frequency || 'One-time']
         );
         res.status(201).json({
             message: 'Expense recorded successfully!',
@@ -128,6 +130,13 @@ exports.updateExpense = async (req, res) => {
             updateFields.push(`cost_type = $${paramIndex++}`);
             updateValues.push(cost_type);
         }
+        if (frequency !== undefined) {
+            if (!['One-time', 'Monthly', 'Yearly'].includes(frequency)) {
+                return handleError(res, 400, 'Invalid frequency. Must be One-time, Monthly, or Yearly.');
+            }
+            updateFields.push(`frequency = $${paramIndex++}`);
+            updateValues.push(frequency);
+        }
 
         if (updateFields.length === 0) {
             return handleError(res, 400, 'No fields provided for update.');
@@ -138,7 +147,7 @@ exports.updateExpense = async (req, res) => {
             UPDATE Expenses
             SET ${updateFields.join(', ')}, updated_at = CURRENT_TIMESTAMP
             WHERE expense_id = $${paramIndex}
-            RETURNING expense_id, amount, cost_type
+            RETURNING expense_id, amount, cost_type, frequency
         `;
 
         const updatedExpense = await db.query(updateQuery, updateValues);

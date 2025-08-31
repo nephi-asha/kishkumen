@@ -278,6 +278,7 @@ router.post(
                     amount DECIMAL(10, 2) NOT NULL,
                     description TEXT,
                     category VARCHAR(100), -- e.g., 'Rent', 'Utilities', 'Marketing', 'Salaries', 'Repairs'
+                    frequency VARCHAR(50) DEFAULT 'One-time' CHECK (frequency IN ('One-time', 'Monthly', 'Yearly')),
                     cost_type VARCHAR(20) NOT NULL CHECK (cost_type IN ('Fixed', 'Variable')), -- Differentiates cost types
                     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
                     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
