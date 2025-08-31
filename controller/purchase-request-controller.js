@@ -33,18 +33,18 @@ exports.getAllPurchaseRequests = async (req, res) => {
     statusQuery += ` ORDER BY ps.request_date DESC`;
 
     try {
-        // It updates status to 'Fulfilled' where refill_amount is zero and status is 'Approved'
-        // await db.query(`
-        //     UPDATE purchase_requests
-        //     SET status = 'Fulfilled', updated_at = CURRENT_TIMESTAMP
-        //     WHERE status = 'Approved' AND request_id IN (
-        //         SELECT ps.request_id
-        //         FROM purchase_requests ps
-        //         INNER JOIN purchase_request_items prs ON ps.request_id = prs.request_id
-        //         INNER JOIN ingredients ing ON prs.ingredient_id = ing.ingredient_id
-        //         WHERE ing.refill_amount = 0 AND ps.status = 'Approved'
-        //     )
-        // `);
+        // It updates status to 'Completed' where refill_amount is zero and status is 'Approved'
+        await db.query(`
+            UPDATE purchase_requests
+            SET status = 'Completed', updated_at = CURRENT_TIMESTAMP
+            WHERE status = 'Approved' AND request_id IN (
+                SELECT ps.request_id
+                FROM purchase_requests ps
+                INNER JOIN purchase_request_items prs ON ps.request_id = prs.request_id
+                INNER JOIN ingredients ing ON prs.ingredient_id = ing.ingredient_id
+                WHERE ing.refill_amount = 0 AND ps.status = 'Approved'
+            )
+        `);
 
         const statusResult = await db.query(statusQuery, statusParams);
         res.status(200).json(statusResult.rows);
