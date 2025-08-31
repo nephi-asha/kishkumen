@@ -242,7 +242,8 @@ router.post(
                     product_id INT NOT NULL,
                     quantity INT NOT NULL,
                     unit_price DECIMAL(10, 2) NOT NULL,
-                    cost_price DECIMAL(10, 2) NOT NULL,
+                    -- I'll be changing this cost_price to accept Null Values
+                    cost_price DECIMAL(10, 2) DEFAULT NULL,
                     FOREIGN KEY (sale_id) REFERENCES $1.Sales(sale_id) ON DELETE CASCADE,
                     FOREIGN KEY (product_id) REFERENCES $1.Products(product_id) ON DELETE RESTRICT
                 );
