@@ -55,8 +55,8 @@ exports.addStaffMember = async (req, res) => {
         const newUserId = newUserResult.rows[0].user_id;
         const newUserDetail = {
             user_id: newUserId,
-            first_name: newUserResult.rows[0].first_name,
-            last_name: newUserResult.rows[0].last_name,
+            first_name: firstName,
+            last_name: lastName,
             roles: roles || []
         };
 
