@@ -10,20 +10,21 @@ async function getRoleId(roleName) {
 
 // Helper to assign roles to a user
 async function assignRolesToUser(userId, roles) {
-    if (!Array.isArray(roles) || roles.length === 0) {
+    // if (!Array.isArray(roles) || roles.length === 0) {
+    //     return;
+    // }
+    if (roles === null || roles === undefined) {
         return;
     }
 
-    // await db.query('DELETE FROM User_Roles WHERE user_id = $1', [userId]);
+    await db.query('DELETE FROM User_Roles WHERE user_id = $1', [userId]);
 
-    for (const roleName of roles) {
-        const roleId = await getRoleId(roleName);
-        if (roleId) {
-            await db.query('INSERT INTO User_Roles (user_id, role_id) VALUES ($1, $2) ON CONFLICT (user_id, role_id) DO NOTHING', [userId, roleId]);
-        } else {
-            console.warn(`Role '${roleName}' not found for assignment to user ${userId}.`);
-        }
+    const roleId = await getRoleId(roleName);
+    if (!roleId) {
+        console.warn(`Role '${roleName}' not found for assignment to user ${userId}.`);
+        return;
     }
+    await db.query('INSERT INTO User_Roles (user_id, role_id) VALUES ($1, $2)', [userId, roleId]);
 }
 
 
@@ -54,11 +55,12 @@ exports.addStaffMember = async (req, res) => {
             [username, hashedPassword, email, first_name, last_name, tenantId]
         );
         const newUserId = newUserResult.rows[0].user_id;
+        console.log('New user created with ID:', newUserId);
         const newUserDetail = {
             user_id: newUserId,
             first_name: first_name,
             last_name: last_name,
-            roles: roles || []
+            role: roles
         };
 
         await assignRolesToUser(newUserId, roles);
