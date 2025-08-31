@@ -1,3 +1,5 @@
+// my name is asha and i like to code and i also like a sister called betty
+
 const db = require('../database/db');
 const handleError = require('../utils/errorHandler');
 
@@ -5,7 +7,7 @@ const handleError = require('../utils/errorHandler');
 // @route   GET /api/purchase-requests
 // @access  Private (Store Owner, Admin, Baker)
 exports.getAllPurchaseRequests = async (req, res) => {
-    const { status } = req.query;
+    const { status } = req.query; 
 
     let statusQuery = `
     SELECT

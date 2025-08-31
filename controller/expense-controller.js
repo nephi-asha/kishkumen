@@ -77,7 +77,7 @@ exports.getExpenseById = async (req, res) => {
 // @route   POST /api/expenses
 // @access  Private (Store Owner, Admin, Baker)
 exports.createExpense = async (req, res) => {
-    const { expense_date, amount, description, category, cost_type } = req.body;
+    const { expense_date, amount, description, category, cost_type, frequency } = req.body;
 
     if (!amount || !cost_type || !['Fixed', 'Variable'].includes(cost_type)) {
         return handleError(res, 400, 'Amount and a valid cost type (Fixed/Variable) are required.');
