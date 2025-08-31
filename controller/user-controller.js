@@ -19,7 +19,7 @@ async function assignRolesToUser(userId, roles) {
 
     await db.query('DELETE FROM User_Roles WHERE user_id = $1', [userId]);
 
-    const roleId = await getRoleId(roleName);
+    const roleId = await getRoleId(roles);
     if (!roleId) {
         console.warn(`Role '${roleName}' not found for assignment to user ${userId}.`);
         return;
