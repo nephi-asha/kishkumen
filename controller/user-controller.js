@@ -14,7 +14,7 @@ async function assignRolesToUser(userId, roles) {
         return;
     }
 
-    await db.query('DELETE FROM User_Roles WHERE user_id = $1', [userId]);
+    const response = await db.query('SELECT * FROM User_Roles WHERE user_id = $1', [userId]);
 
     for (const roleName of roles) {
         const roleId = await getRoleId(roleName);
