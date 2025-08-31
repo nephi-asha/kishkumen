@@ -86,7 +86,7 @@ exports.createExpense = async (req, res) => {
     try {
         const newExpense = await db.query(
             `INSERT INTO Expenses (expense_date, amount, description, category, cost_type, frequency)
-             VALUES ($1, $2, $3, $4, $5, $6) RETURNING expense_id, expense_date, amount, cost_type, frequency`,
+             VALUES ($1, $2, $3, $4, $5, $6) RETURNING expense_id, expense_date, amount, category, cost_type, frequency`,
             [expense_date || new Date(), amount, description || null, category || null, cost_type, frequency || 'One-time']
         );
         res.status(201).json({
