@@ -10,13 +10,13 @@ exports.getAllPurchaseRequests = async (req, res) => {
     let statusQuery = `
     SELECT
         ing.ingredient_id,
-	    ing.ingredient_name,
-	    ing.refill_amount,
+        ing.ingredient_name,
+        ing.refill_amount,
         ing.cost_price,
-	    ps.status,
-	    ps.notes,
+        ps.status,
+        ps.notes,
         ps.request_id,
-	    ps.request_date
+        ps.request_date
     FROM ingredients as ing
     INNER JOIN purchase_request_items as prs
     ON ing.ingredient_id = prs.ingredient_id
@@ -33,12 +33,25 @@ exports.getAllPurchaseRequests = async (req, res) => {
     statusQuery += ` ORDER BY ps.request_date DESC`;
 
     try {
+        // It updates status to 'Fulfilled' where refill_amount is zero and status is 'Approved'
+        await db.query(`
+            UPDATE purchase_requests
+            SET status = 'Fulfilled', updated_at = CURRENT_TIMESTAMP
+            WHERE status = 'Approved' AND request_id IN (
+                SELECT ps.request_id
+                FROM purchase_requests ps
+                INNER JOIN purchase_request_items prs ON ps.request_id = prs.request_id
+                INNER JOIN ingredients ing ON prs.ingredient_id = ing.ingredient_id
+                WHERE ing.refill_amount = 0 AND ps.status = 'Approved'
+            )
+        `);
+
         const statusResult = await db.query(statusQuery, statusParams);
         res.status(200).json(statusResult.rows);
     } catch (error) {
         console.error('Error fetching purchase requests:', error);
         handleError(res, 500, 'Server error fetching purchase requests.');
-    }
+    } 
 };
 
 
