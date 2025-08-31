@@ -4,7 +4,7 @@ const handleError = require('../utils/errorHandler');
 
 // Helper to get role_id from role_name
 async function getRoleId(roleName) {
-    const result = await db.query('SELECT role_id FROM Roles WHERE role_name = $1', [roleName]);
+    const result = await db.query('SELECT role_id FROM roles WHERE role_name = $1', [roleName]);
     return result.rows.length > 0 ? result.rows[0].role_id : null;
 }
 
@@ -14,7 +14,7 @@ async function assignRolesToUser(userId, roles) {
         return;
     }
 
-    await db.query('DELETE FROM User_Roles WHERE user_id = $1', [userId]);
+    // await db.query('DELETE FROM User_Roles WHERE user_id = $1', [userId]);
 
     for (const roleName of roles) {
         const roleId = await getRoleId(roleName);
@@ -25,6 +25,7 @@ async function assignRolesToUser(userId, roles) {
         }
     }
 }
+
 
 // @desc    Add a new staff member to a bakery (by Store Owner/Admin)
 // @route   POST /api/users/add-staff
