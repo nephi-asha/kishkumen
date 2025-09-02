@@ -7,7 +7,7 @@ const handleError = require('../utils/errorHandler');
 exports.getAllIngredients = async (req, res) => {
     try {
         const ingredients = await db.query(
-            `SELECT ingredient_id, ingredient_name, unit_of_measure, current_stock, reorder_level, refill_amount, supplier, cost_price, created_at, updated_at
+            `SELECT ingredient_id, ingredient_name, unit_of_measure, current_stock, reorder_level, refill_amount, supplier, cost_price, defect_count, created_at, updated_at
              FROM Ingredients
              ORDER BY ingredient_name`
         );
@@ -26,7 +26,7 @@ exports.getIngredientById = async (req, res) => {
 
     try {
         const ingredient = await db.query(
-            `SELECT ingredient_id, ingredient_name, unit_of_measure, current_stock, reorder_level, refill_amount, supplier, cost_price, created_at, updated_at
+            `SELECT ingredient_id, ingredient_name, unit_of_measure, current_stock, reorder_level, refill_amount, supplier, cost_price, defect_count, created_at, updated_at
              FROM Ingredients
              WHERE ingredient_id = $1`,
             [ingredientId]
@@ -46,7 +46,7 @@ exports.getIngredientById = async (req, res) => {
 // @route   POST /api/ingredients
 // @access  Private (Store Owner, Admin, Baker)
 exports.createIngredient = async (req, res) => {
-    const { ingredient_name, unit_of_measure, current_stock, reorder_level, refill_amount, supplier, cost_price } = req.body;
+    const { ingredient_name, unit_of_measure, current_stock, reorder_level, refill_amount, supplier, cost_price, defect_count } = req.body;
 
     // Basic validation
     if (!ingredient_name || !unit_of_measure) {
@@ -64,9 +64,9 @@ exports.createIngredient = async (req, res) => {
         }
 
         const newIngredient = await db.query(
-            `INSERT INTO Ingredients (ingredient_name, unit_of_measure, current_stock, reorder_level, refill_amount, supplier, cost_price)
-             VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING ingredient_id, ingredient_name, cost_price`,
-            [ingredient_name, unit_of_measure, current_stock || 0, reorder_level || 0, refill_amount || 0, supplier || null, cost_price || 0.00]
+            `INSERT INTO Ingredients (ingredient_name, unit_of_measure, current_stock, reorder_level, refill_amount, supplier, cost_price, defect_count)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING ingredient_id, ingredient_name, cost_price`,
+            [ingredient_name, unit_of_measure, current_stock || 0, reorder_level || 0, refill_amount || 0, supplier || null, cost_price || 0.00, defect_count || 0]
         );
         res.status(201).json({
             message: 'Ingredient created successfully!',
@@ -83,7 +83,7 @@ exports.createIngredient = async (req, res) => {
 // @access  Private (Store Owner, Admin, Baker)
 exports.updateIngredient = async (req, res) => {
     const ingredientId = parseInt(req.params.id);
-    const { ingredient_name, unit_of_measure, current_stock, reorder_level, refill_amount, supplier, cost_price } = req.body;
+    const { ingredient_name, unit_of_measure, current_stock, reorder_level, refill_amount, supplier, cost_price, defect_count } = req.body;
 
     try {
         // Verify the ingredient exists within the current tenant's schema
@@ -106,13 +106,13 @@ exports.updateIngredient = async (req, res) => {
         if (refill_amount !== undefined) { updateFields.push(`refill_amount = $${paramIndex++}`); updateValues.push(refill_amount); }
         if (supplier !== undefined) { updateFields.push(`supplier = $${paramIndex++}`); updateValues.push(supplier); }
         if (cost_price !== undefined) { updateFields.push(`cost_price = $${paramIndex++}`); updateValues.push(cost_price); }
-
+        if (defect_count !== undefined) { updateFields.push(`defect_count = $${paramIndex++}`); updateValues.push(defect_count); }
 
         if (updateFields.length === 0) {
             return handleError(res, 400, 'No fields provided for update.');
         }
 
-        updateValues.push(ingredientId); // Add ingredientId for WHERE clause
+        updateValues.push(ingredientId); 
         const updateQuery = `
             UPDATE Ingredients
             SET ${updateFields.join(', ')}, updated_at = CURRENT_TIMESTAMP
@@ -197,5 +197,33 @@ exports.refillIngredientStock = async (req, res) => {
     } catch (error) {
         console.error('Error refilling ingredient stock:', error);
         handleError(res, 500, 'Server error refilling ingredient stock.');
+    }
+};
+
+exports.reportDefectiveIngredient = async (req, res) => {
+    const ingredientId = parseInt(req.params.id);
+    const { defectCount } = req.body;
+
+    if (defectCount === undefined || defectCount < 0) {
+        return handleError(res, 400, 'Invalid defect count.');
+    }
+
+    try {
+        await db.query(
+            `UPDATE Ingredients
+            SET defect_count = defect_count + $1, updated_at = CURRENT_TIMESTAMP
+            WHERE ingredient_id = $2`,
+            [defectCount, ingredientId]
+        );
+        await db.query(
+            `UPDATE Ingredients
+            SET current_stock = current_stock - $1, updated_at = CURRENT_TIMESTAMP
+            WHERE ingredient_id = $2`,
+            [defectCount, ingredientId]
+        );
+        res.status(200).json({ message: 'Ingredient defect count updated successfully!' });
+    } catch (error) {
+        console.error('Error updating ingredient defect count:', error);
+        handleError(res, 500, 'Server error updating ingredient defect count.');
     }
 };

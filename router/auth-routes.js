@@ -191,6 +191,7 @@ router.post(
                     recipe_id INT,
                     quantity_left INT DEFAULT 0,
                     sold_count INT DEFAULT 0,
+                    defect_count INT DEFAULT 0,
                     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
                     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
                 );
@@ -282,6 +283,14 @@ router.post(
                     cost_type VARCHAR(20) NOT NULL CHECK (cost_type IN ('Fixed', 'Variable')), -- Differentiates cost types
                     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
                     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+                );
+
+                CREATE TABLE $1.restocks
+                (
+                    restock_id serial PRIMARY KEY,
+                    product_id integer NOT NULL REFERENCES $1.products(product_id),
+                    refill_value DECIMAL(10, 5) NOT NULL,
+                    created_at TIMESTAMP with time zone DEFAULT CURRENT_TIMESTAMP
                 );
 
                 -- Add foreign key for Products.recipe_id

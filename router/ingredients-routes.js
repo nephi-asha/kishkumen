@@ -15,7 +15,11 @@ router.get('/:id', ingredientController.getIngredientById);
 // Only Store Owners, Admins, and Bakers can create ingredients
 router.post('/', authorizeRoles(['Store Owner', 'Admin', 'Baker']), ingredientController.createIngredient);
 
+// REFILL ingredient stock
 router.post('/refill/:id', authorizeRoles(['Store Owner', 'Admin', 'Baker']), ingredientController.refillIngredientStock);
+
+// REPORT defective ingredient
+router.post('/defect/:id', authorizeRoles(['Store Owner', 'Admin', 'Baker']), ingredientController.reportDefectiveIngredient);
 
 // UPDATE ingredient by ID
 // Only Store Owners, Admins, and Bakers can update ingredients
@@ -24,5 +28,6 @@ router.put('/:id', authorizeRoles(['Store Owner', 'Admin', 'Baker']), ingredient
 // DELETE ingredient by ID
 // Only Store Owners and Admins can delete ingredients
 router.delete('/:id', authorizeRoles(['Store Owner', 'Admin']), ingredientController.deleteIngredient);
+
 
 module.exports = router;
