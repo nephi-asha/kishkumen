@@ -1,3 +1,6 @@
+const db = require('../database/db');
+const handleError = require('../utils/errorHandler');
+
 exports.createRestockRequest = async (req, res) => {
     const { product_id, refill_amount } = req.body;
 
