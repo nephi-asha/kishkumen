@@ -182,7 +182,7 @@ router.post(
                 CREATE SCHEMA IF NOT EXISTS $1;
 
                 CREATE TABLE $1.Products (
-                    product_id VARCHAR(36) PRIMARY KEY DEFAULT (UUID()),
+                    product_id SERIAL PRIMARY KEY,
                     product_name VARCHAR(100) NOT NULL,
                     description TEXT,
                     unit_price DECIMAL(10, 2) NOT NULL,
@@ -197,7 +197,7 @@ router.post(
                 );
 
                 CREATE TABLE $1.Ingredients (
-                    ingredient_id VARCHAR(36) PRIMARY KEY DEFAULT (UUID()),
+                    ingredient_id SERIAL PRIMARY KEY,
                     ingredient_name VARCHAR(100) UNIQUE NOT NULL,
                     unit_of_measure VARCHAR(20),
                     current_stock DECIMAL(10, 2) DEFAULT 0,
@@ -210,7 +210,7 @@ router.post(
                 );
 
                 CREATE TABLE $1.Recipes (
-                    recipe_id VARCHAR(36) PRIMARY KEY DEFAULT (UUID()),
+                    recipe_id SERIAL PRIMARY KEY,
                     recipe_name VARCHAR(100) NOT NULL,
                     description TEXT,
                     batch_size VARCHAR(50),
@@ -219,7 +219,7 @@ router.post(
                 );
 
                 CREATE TABLE $1.Recipe_Ingredients (
-                    recipe_ingredient_id VARCHAR(36) PRIMARY KEY DEFAULT (UUID()),
+                    recipe_ingredient_id SERIAL PRIMARY KEY,
                     recipe_id INT NOT NULL,
                     ingredient_id INT NOT NULL,
                     quantity DECIMAL(10, 2) NOT NULL,
@@ -228,7 +228,7 @@ router.post(
                 );
 
                 CREATE TABLE $1.Sales (
-                    sale_id VARCHAR(36) PRIMARY KEY DEFAULT (UUID()),
+                    sale_id SERIAL PRIMARY KEY,
                     sale_date TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
                     total_amount DECIMAL(10, 2) NOT NULL,
                     payment_method VARCHAR(50),
@@ -238,7 +238,7 @@ router.post(
                 );
 
                 CREATE TABLE $1.Sale_Items (
-                    sale_item_id VARCHAR(36) PRIMARY KEY DEFAULT (UUID()),
+                    sale_item_id SERIAL PRIMARY KEY,
                     sale_id INT NOT NULL,
                     product_id INT NOT NULL,
                     quantity INT NOT NULL,
@@ -250,7 +250,7 @@ router.post(
                 );
 
                 CREATE TABLE $1.Purchase_Requests (
-                    request_id VARCHAR(36) PRIMARY KEY DEFAULT (UUID()),
+                    request_id SERIAL PRIMARY KEY,
                     request_date TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
                     requested_by_user_id INT NOT NULL,
                     status VARCHAR(50) DEFAULT 'Pending' CHECK (status IN ('Pending', 'Approved', 'Rejected', 'Completed')),
@@ -263,7 +263,7 @@ router.post(
                 );
 
                 CREATE TABLE $1.Purchase_Request_Items (
-                    request_item_id VARCHAR(36) PRIMARY KEY DEFAULT (UUID()),
+                    request_item_id SERIAL PRIMARY KEY,
                     request_id INT NOT NULL,
                     ingredient_id INT NOT NULL,
                     quantity_requested DECIMAL(10, 2) NOT NULL,
@@ -274,7 +274,7 @@ router.post(
 
                 -- NEW TABLE: Expenses
                 CREATE TABLE $1.Expenses (
-                    expense_id VARCHAR(36) PRIMARY KEY DEFAULT (UUID()),
+                    expense_id SERIAL PRIMARY KEY,
                     expense_date TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
                     amount DECIMAL(10, 2) NOT NULL,
                     description TEXT,
