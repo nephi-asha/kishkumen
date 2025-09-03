@@ -18,8 +18,6 @@ router.post('/', authorizeRoles(['Store Owner', 'Admin', 'Baker']), ingredientCo
 // REFILL ingredient stock
 router.post('/refill/:id', authorizeRoles(['Store Owner', 'Admin', 'Baker']), ingredientController.refillIngredientStock);
 
-// REPORT defective ingredient
-router.post('/defect/:id', authorizeRoles(['Store Owner', 'Admin', 'Baker']), ingredientController.reportDefectiveIngredient);
 
 // UPDATE ingredient by ID
 // Only Store Owners, Admins, and Bakers can update ingredients

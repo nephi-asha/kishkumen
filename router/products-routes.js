@@ -9,6 +9,9 @@ router.get('/:id', productController.getProductById);
 
 router.post('/', authorizeRoles(['Store Owner', 'Admin']), productController.createProduct);
 
+// REPORT defective product
+router.post('/defect/:id', authorizeRoles(['Store Owner', 'Admin', 'Baker']), productController.reportDefectiveProduct);
+
 router.put('/:id', authorizeRoles(['Store Owner', 'Admin']), productController.updateProduct);
 
 router.delete('/:id', authorizeRoles(['Store Owner', 'Admin']), productController.deleteProduct);

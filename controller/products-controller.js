@@ -35,7 +35,7 @@ async function calculateRecipeCost(recipeId) {
 exports.getAllProducts = async (req, res) => {
     try {
         const productsResult = await db.query(
-            `SELECT product_id, product_name, description, unit_price, cost_price, is_active, recipe_id, quantity_left, created_at, updated_at
+            `SELECT product_id, product_name, description, unit_price, cost_price, is_active, recipe_id, quantity_left, defect_count, created_at, updated_at
              FROM Products
              ORDER BY product_name`
         );
@@ -85,7 +85,7 @@ exports.getProductById = async (req, res) => {
 
     try {
         const productResult = await db.query(
-            `SELECT product_id, product_name, description, unit_price, cost_price, is_active, recipe_id, quantity_left, created_at, updated_at
+            `SELECT product_id, product_name, description, unit_price, cost_price, is_active, recipe_id, quantity_left, defect_count, created_at, updated_at
              FROM Products
              WHERE product_id = $1`,
             [productId]
@@ -131,7 +131,7 @@ exports.getProductById = async (req, res) => {
 // @route   POST /api/products
 // @access  Private (Store Owner, Admin)
 exports.createProduct = async (req, res) => {
-    const { product_name, description, unit_price, is_active, recipe_id } = req.body;
+    const { product_name, description, unit_price, is_active, recipe_id, defect_count } = req.body;
     let calculated_cost_price = 0.00;
 
     if (!product_name || unit_price === undefined || unit_price === null) {
@@ -157,9 +157,9 @@ exports.createProduct = async (req, res) => {
         }
 
         const newProduct = await db.query(
-            `INSERT INTO Products (product_name, description, unit_price, cost_price, is_active, recipe_id)
-             VALUES ($1, $2, $3, $4, $5, $6) RETURNING product_id, product_name, cost_price`,
-            [product_name, description || null, unit_price, calculated_cost_price, is_active !== undefined ? is_active : true, recipe_id || null]
+            `INSERT INTO Products (product_name, description, unit_price, cost_price, is_active, recipe_id, defect_count)
+             VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING product_id, product_name, cost_price, defect_count`,
+            [product_name, description || null, unit_price, calculated_cost_price, is_active !== undefined ? is_active : true, recipe_id || null, defect_count || 0]
         );
         res.status(201).json({
             message: 'Product created successfully!',
@@ -176,7 +176,7 @@ exports.createProduct = async (req, res) => {
 // @access  Private (Store Owner, Admin)
 exports.updateProduct = async (req, res) => {
     const productId = parseInt(req.params.id);
-    const { product_name, description, unit_price, is_active, recipe_id, quantity_left } = req.body;
+    const { product_name, description, unit_price, is_active, recipe_id, quantity_left, defect_count } = req.body;
 
     try {
         const existingProduct = await db.query(
@@ -197,6 +197,7 @@ exports.updateProduct = async (req, res) => {
         if (unit_price !== undefined) { updateFields.push(`unit_price = $${paramIndex++}`); updateValues.push(unit_price); }
         if (is_active !== undefined) { updateFields.push(`is_active = $${paramIndex++}`); updateValues.push(is_active); }
         if (quantity_left !== undefined) { updateFields.push(`quantity_left = $${paramIndex++}`); updateValues.push(quantity_left); }
+        if (defect_count !== undefined) { updateFields.push(`defect_count = $${paramIndex++}`); updateValues.push(defect_count); }
 
         // If recipe_id is explicitly provided or changed, recalculate cost
         if (recipe_id !== undefined && recipe_id !== existingProduct.rows[0].recipe_id) {
@@ -249,7 +250,7 @@ exports.updateProduct = async (req, res) => {
             UPDATE Products
             SET ${updateFields.join(', ')}, updated_at = CURRENT_TIMESTAMP
             WHERE product_id = $${paramIndex}
-            RETURNING product_id, product_name, cost_price, quantity_left
+            RETURNING product_id, product_name, cost_price, quantity_left, defect_count
         `;
 
         const updatedProduct = await db.query(updateQuery, updateValues);
@@ -292,5 +293,34 @@ exports.deleteProduct = async (req, res) => {
     } catch (error) {
         console.error('Error deleting product:', error);
         handleError(res, 500, 'Server error deleting product.');
+    }
+};
+
+
+exports.reportDefectiveProduct = async (req, res) => {
+    const productId = parseInt(req.params.id);
+    const { defectCount } = req.body;
+
+    if (defectCount === undefined || defectCount < 0) {
+        return handleError(res, 400, 'Invalid defect count.');
+    }
+
+    try {
+        await db.query(
+            `UPDATE Products
+            SET defect_count = defect_count + $1, updated_at = CURRENT_TIMESTAMP
+            WHERE product_id = $2`,
+            [defectCount, productId]
+        );
+        await db.query(
+            `UPDATE Products
+            SET quantity_left = quantity_left - $1, updated_at = CURRENT_TIMESTAMP
+            WHERE product_id = $2`,
+            [defectCount, productId]
+        );
+        res.status(200).json({ message: 'Product defect count updated successfully!' });
+    } catch (error) {
+        console.error('Error updating product defect count:', error);
+        handleError(res, 500, 'Server error updating product defect count.');
     }
 };

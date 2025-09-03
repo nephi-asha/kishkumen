@@ -2,17 +2,17 @@ const db = require('../database/db');
 const handleError = require('../utils/errorHandler');
 
 exports.createRestockRequest = async (req, res) => {
-    const { product_id, refill_amount } = req.body;
+    const { product_id, restock_value } = req.body;
 
-    if (!product_id || !refill_amount) {
+    if (!product_id || !restock_value) {
         return handleError(res, 400, 'Product ID and refill amount are required.');
     }
 
     try {
         const newRestockRequest = await db.query(
-            `INSERT INTO restocks (product_id, refill_amount, created_at)
+            `INSERT INTO restocks (product_id, restock_value, created_at)
              VALUES ($1, $2, CURRENT_TIMESTAMP) RETURNING *`,
-            [product_id, refill_amount]
+            [product_id, restock_value]
         );
         res.status(201).json({
             message: 'Restock request created successfully!',
