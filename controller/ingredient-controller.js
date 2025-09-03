@@ -7,7 +7,7 @@ const handleError = require('../utils/errorHandler');
 exports.getAllIngredients = async (req, res) => {
     try {
         const ingredients = await db.query(
-            `SELECT ingredient_id, ingredient_name, unit_of_measure, current_stock, reorder_level, refill_amount, supplier, cost_price created_at, updated_at
+            `SELECT ingredient_id, ingredient_name, unit_of_measure, current_stock, reorder_level, refill_amount, supplier, cost_price, created_at, updated_at
              FROM Ingredients
              ORDER BY ingredient_name`
         );
