@@ -67,7 +67,7 @@ exports.getAllRestockRequests = async (req, res) => {
             );
             restock.items = restockItemsResult.rows;
         }
-        res.status(200).json(restocks.items);
+        res.status(200).json(restock.items);
     } catch (error) {
         console.error('Error fetching restock requests:', error);
         handleError(res, 500, 'Server error fetching restock requests.');
