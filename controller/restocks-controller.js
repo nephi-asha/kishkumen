@@ -54,20 +54,26 @@ exports.getAllRestockRequests = async (req, res) => {
         const restockResult = await db.query(restockQuery, restockQueryParams);
         const restocks = restockResult.rows;
 
-        for (let i =0; i < restocks.length; i++) {
+        const allRestockItems = [];
+
+        for (let i = 0; i < restocks.length; i++) {
             const restock = restocks[i];
             const restockItemsResult = await db.query(
                 `
-                SELECT ri.restock_id, ri.product_id, pr.product_name, pr.cost_price, ri.restock_value, ri.created_at
+                SELECT ri.restock_id, ri.product_id, pr.product_name, pr.cost_price, 
+                       COALESCE(ri.restock_value, 0) AS restock_value, 
+                       ri.created_at
                 FROM restocks ri
                 JOIN products pr ON ri.product_id = pr.product_id
                 WHERE ri.restock_id = $1
                 `,
                 [restock.restock_id]
             );
-            restock.items = restockItemsResult.rows;
+            
+            allRestockItems.push(...restockItemsResult.rows);
         }
-        res.status(200).json(restocks[0].items);
+
+        res.status(200).json(allRestockItems);
     } catch (error) {
         console.error('Error fetching restock requests:', error);
         handleError(res, 500, 'Server error fetching restock requests.');
