@@ -58,7 +58,7 @@ exports.getAllRestockRequests = async (req, res) => {
             const restock = restocks[i];
             const restockItemsResult = await db.query(
                 `
-                SELECT ri.restock_id, ri.product_id, pr.product_name, pr.cost_price, ri.restock_value, ri.created_at
+                SELECT ri.restock_id, ri.product_id, pr.product_name, pr.cost_price, COALESCE(ri.restock_value, 0) AS restock_value, ri.created_at
                 FROM restocks ri
                 JOIN products pr ON ri.product_id = pr.product_id
                 WHERE ri.restock_id = $1
