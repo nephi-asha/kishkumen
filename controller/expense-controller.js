@@ -104,7 +104,7 @@ exports.createExpense = async (req, res) => {
 // @access  Private (Store Owner, Admin)
 exports.updateExpense = async (req, res) => {
     const expenseId = parseInt(req.params.id);
-    const { expense_date, amount, description, category, cost_type } = req.body;
+    const { expense_date, amount, description, category, cost_type, frequency } = req.body;
 
     try {
         const existingExpense = await db.query(
