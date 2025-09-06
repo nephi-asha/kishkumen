@@ -2,7 +2,7 @@ const db = require('../database/db');
 const hmac = require('crypto');
 const jwt = require('jsonwebtoken'); 
 
-const OPAY_SECRET_KEY = process.env.OPAY_SECRET_KEY || 'OPAYPRV17571212308620.7871132011413308';
+const OPAY_SECRET_KEY = process.env.OPAY_SECRET_KEY;
 
 exports.handleOpayCallback = async (req, res) => {
     console.log("OPay callback received.");
