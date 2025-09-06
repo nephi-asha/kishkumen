@@ -9,6 +9,7 @@ const purchase_requestsRoutes = require("./purchase-request-routes");
 const expenseRoutes = require("./expense-routes");
 const reportRoutes = require("./report-routes");
 const restockRoutes = require('./restocks-routes');
+const opayRoutes = require('./opay-routes');
 
 
 router.get("/", (req, res) => {
@@ -25,5 +26,7 @@ router.use("/purchase-requests", purchase_requestsRoutes);
 router.use("/expenses", expenseRoutes);
 router.use("/reports", reportRoutes);
 router.use("/restocks", restockRoutes);
+router.use("/opay", opayRoutes);
+
 
 module.exports = router;
