@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const opayController = require('../controllers/opay-controller');
+const opayController = require('../controller/opay-controller');
 
 
 router.post('/payment-notification', opayController.handleOpayCallback);
