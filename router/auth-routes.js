@@ -4,6 +4,7 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const db = require('../database/db');
 const { body, validationResult } = require('express-validator');
+// const nodemailer = require('nodemailer');
 
 // Helper function to fetch user roles
 async function getUserRoles(userId) {
@@ -17,12 +18,67 @@ async function getUserRoles(userId) {
     return rolesResult.rows.map(row => row.role_name);
 }
 
+// const transporter = nodemailer.createTransport({
+//   service: 'Gmail', // Use your email service
+//   auth: {
+//     user: process.env.EMAIL_USER,
+//     pass: process.env.EMAIL_PASS,
+//   },
+// });
+
+// async function sendRecoveryPasswordEmail(email, token) {
+//     const mailOptions = {
+//         from: process.env.EMAIL_USER,
+//         to: email,
+//         subject: 'Password Recovery',
+//         text: `If you did not request a password reset, please ignore this email. Here is your password verification code. Copy and paste it: ${token}`,
+//     };
+
+//     try {
+//         await transporter.sendMail(mailOptions);
+//         console.log(`Password recovery email sent to ${email}`);
+//     } catch (error) {
+//         console.error(`Error sending password recovery email: ${error}`);
+//     }
+// }
+
+// async function generateSixDigitCode() {
+//     return Math.floor(100000 + Math.random() * 900000).toString();
+// }
+
+// async function generatePasswordResetToken(userId) {
+//     const resetToken = jwt.sign(
+//         { userId: userId },
+//         process.env.JWT_SECRET,
+//         { expiresIn: '1h' } // Token expires in 1 hour
+//     );
+//     return resetToken;
+// }
+
+// async function verifyPasswordResetToken(token) {
+//     try {
+//         const decoded = jwt.verify(token, process.env.JWT_SECRET);
+//         return decoded.userId;
+//     } catch (error) {
+//         console.error(`Error verifying password reset token: ${error}`);
+//         return null;
+//     }
+// }
+
+async function changeUserPassword(userId, newPassword) {
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    await db.query(
+        `UPDATE Users SET password_hash = $1 WHERE user_id = $2`,
+        [hashedPassword, userId]
+    );
+}
+
 /**
  * @swagger
  * /register:
  *   post:
- *     summary: Register a new bakery and owner
- *     description: Creates a new bakery tenant and user account, and sets up a schema for the bakery.
+ *     summary: Register a new business and owner
+ *     description: Creates a new business tenant and user account, and sets up a schema for the business.
  *     requestBody:
  *       required: true
  *       content:
@@ -51,7 +107,7 @@ async function getUserRoles(userId) {
  *                 example: strongPassword123
  *     responses:
  *       201:
- *         description: Bakery and owner registered successfully
+ *         description: Business and owner registered successfully
  *         content:
  *           application/json:
  *             schema:
@@ -59,7 +115,7 @@ async function getUserRoles(userId) {
  *               properties:
  *                 message:
  *                   type: string
- *                   example: Bakery and owner registered successfully!
+ *                   example: Business and owner registered successfully!
  *                 token:
  *                   type: string
  *                   description: JWT token
@@ -94,7 +150,7 @@ async function getUserRoles(userId) {
  *                   type: string
  *                   example: Username must be at least 3 characters long.
  *       409:
- *         description: Bakery name or username already taken
+ *         description: Business name or username already taken
  *         content:
  *           application/json:
  *             schema:
@@ -115,13 +171,36 @@ async function getUserRoles(userId) {
  *                   example: Server error during registration. Please try again.
  */
 
+router.post('/await-approval', async (req, res) => {
+    res.status(200).json({ message: 'Registration successful! Your account is pending approval by the system administrator. You will be notified via email once your account is activated.' });
+});
+
+router.post('/approve-account', async (req, res) => {
+    const { userId, adminKey } = req.body;
+
+    // Verify admin key (this should be more secure in a real application)
+    if (adminKey !== process.env.ADMIN_KEY) {
+        return res.status(403).json({ message: 'Forbidden: Invalid admin key.' });
+    }
+
+    try {
+        await db.query('UPDATE Users SET status = $1 WHERE id = $2', ['active', userId]);
+        res.status(200).json({ message: 'User account approved successfully.' });
+    } catch (error) {
+        console.error(`Error approving user account: ${error}`);
+        res.status(500).json({ message: 'Server error during account approval. Please try again.' });
+    }
+});
+
 router.post(
     '/register',
     [
-        body('bakeryName').trim().notEmpty().withMessage('Bakery name is required.'),
+        body('firstName').trim().notEmpty().withMessage('First name is required.'),
+        body('lastName').trim().notEmpty().withMessage('Last name is required.'),
+        body('bakeryName').trim().notEmpty().withMessage('Business name is required.'),
         body('username').trim().isLength({ min: 3 }).withMessage('Username must be at least 3 characters long.'),
-        body('email').isEmail().withMessage('Please enter a valid email address.'),
-        body('password').isLength({ min: 6 }).withMessage('Password must be at least 6 characters long.')
+        // body('email').isEmail().withMessage('Please enter a valid email address.'),
+        // body('password').isLength({ min: 6 }).withMessage('Password must be at least 6 characters long.')
     ],
     async (req, res) => {
         const errors = validationResult(req);
@@ -129,13 +208,15 @@ router.post(
             return res.status(400).json({ message: errors.array()[0].msg });
         }
 
-        const { bakeryName, username, email, password } = req.body;
+        // const { bakeryName, username, email, password } = req.body;
+        const { bakeryName, username, email } = req.body;
+        
         const schemaName = `bakery_${bakeryName.toLowerCase().replace(/[^a-z0-9_]/g, '')}_${Date.now()}`;
 
         try {
             const existingTenant = await db.query('SELECT tenant_id FROM Tenants WHERE tenant_name = $1', [bakeryName]);
             if (existingTenant.rows.length > 0) {
-                return res.status(409).json({ message: 'Bakery name already taken.' });
+                return res.status(409).json({ message: 'Business name already taken.' });
             }
 
             const existingUser = await db.query('SELECT user_id FROM Users WHERE username = $1', [username]);
@@ -289,9 +370,28 @@ router.post(
                 (
                     restock_id serial PRIMARY KEY,
                     product_id integer NOT NULL REFERENCES $1.products(product_id),
-                    refill_value DECIMAL(10, 5) NOT NULL,
+                    restock_value DECIMAL(10, 5) NOT NULL,
                     created_at TIMESTAMP with time zone DEFAULT CURRENT_TIMESTAMP
                 );
+
+                CREATE TABLE $1.Defects (
+                defect_id BIGINT GENERATED BY DEFAULT AS IDENTITY NOT NULL,
+                product_id INTEGER NULL,
+                defect_count BIGINT NULL,
+                created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+                CONSTRAINT defects_pkey PRIMARY KEY (defect_id),
+                CONSTRAINT defects_product_id_fkey FOREIGN KEY (product_id) REFERENCES $1.products (product_id) ON UPDATE CASCADE ON DELETE CASCADE
+                );               
+                
+                CREATE TABLE $1.overstocks (
+                overtstock_id BIGINT GENERATED BY DEFAULT AS IDENTITY NOT NULL,
+                product_id INTEGER NOT NULL,
+                quantity_left BIGINT NULL,
+                created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+                updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+                CONSTRAINT overstocks_pkey PRIMARY KEY (overtstock_id),
+                CONSTRAINT overstocks_product_id_fkey FOREIGN KEY (product_id) REFERENCES $1.products (product_id) ON UPDATE CASCADE ON DELETE CASCADE
+                );                
 
                 -- Add foreign key for Products.recipe_id
                 ALTER TABLE $1.Products
@@ -322,7 +422,7 @@ router.post(
             );
 
             res.status(201).json({
-                message: 'Bakery and owner registered successfully!',
+                message: 'Business and owner registered successfully!',
                 token: token,
                 user: {
                     id: newUserId,
@@ -471,6 +571,55 @@ router.post('/login', async (req, res) => {
     } catch (error) {
         console.error('Login error:', error);
         res.status(500).json({ message: 'Server error during login.' });
+    }
+});
+
+// router.post('/forgotten-password', async(req, res) => {
+//     const { email } = req.body;
+
+
+//     try {
+//         const userResult = await db.query('SELECT user_id, username FROM Users WHERE email = $1', [email]);
+//         if(userResult.rows.length === 0) {
+//             return res.status(404).json({ message: 'No user found with that email address.'});
+//         }
+//         const user = userResult.rows[0];
+
+//         // Generate a secure token and send via email
+//         // Reset token should used generateSixDigitCode function
+//         const resetToken = await generateSixDigitCode();
+//         console.log(`Password reset requested for user ${user.username} (${email}).`);
+//         // const resetToken = jwt.sign(
+//         //     { userId: user.user_id },
+//         //     process.env.JWT_SECRET,
+//         //     { expiresIn: '1h' } // Token expires in 1 hour
+//         // );
+
+//         await sendRecoveryPasswordEmail(email, resetToken);
+//         // If email sending fails, we still respond with success to avoid email enumeration
+        
+//         res.status(200).json({ message: 'Password reset link has been sent to your email address if it exists in our system.' });
+//     }
+//     catch (error) {
+//         console.error('Forgotten password error:', error);
+//         res.status(500).json({ message: 'Server error during password reset.' });
+//     }
+// })
+
+router.post('/change-password', async(req, res) => {
+    const { token, newPassword } = req.body;
+    if(!token || !newPassword) {
+        return res.status(400).json({ message: 'Token and new password are required.'});
+    }
+    try {
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        const userId = decoded.userId;
+
+        await changeUserPassword(userId, newPassword);
+        res.status(200).json({ message: 'Password changed successfully.' });
+    } catch (error) {
+        console.error('Change password error:', error);
+        res.status(500).json({ message: 'Server error during password change.' });
     }
 });
 

@@ -10,6 +10,8 @@ const expenseRoutes = require("./expense-routes");
 const reportRoutes = require("./report-routes");
 const restockRoutes = require('./restocks-routes');
 const opayRoutes = require('./opay-routes');
+const defectRoutes = require('./defect-routes')
+const overStocks = require('./overstock-routes')
 
 
 router.get("/", (req, res) => {
@@ -27,6 +29,8 @@ router.use("/expenses", expenseRoutes);
 router.use("/reports", reportRoutes);
 router.use("/restocks", restockRoutes);
 router.use("/opay", opayRoutes);
+router.use('/defects', defectRoutes);
+router.use('/overstocks', overStocks);
 
 
 module.exports = router;
