@@ -372,3 +372,17 @@ exports.updateUserRoles = async (req, res) => {
         handleError(res, 500, 'Server error during user role update.');
     }
 };
+
+exports.getAllBakeriesSuperAdmin = async (req, res) => {
+    try {
+        const bakeriesResult = await db.query(
+            `SELECT tenant_id, business_name, owner_user_id, created_at, updated_at
+             FROM Tenants
+             ORDER BY created_at DESC`
+        );
+        res.status(200).json(bakeriesResult.rows);
+    } catch (error) {
+        console.error('Error fetching all bakeries for Super Admin:', error);
+        handleError(res, 500, 'Server error fetching bakery data.');
+    }
+};

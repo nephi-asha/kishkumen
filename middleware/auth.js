@@ -1,3 +1,4 @@
+// auth.js
 const jwt = require("jsonwebtoken");
 const db = require("../database/db");
 
@@ -11,18 +12,13 @@ const verifyToken = (req, res, next) => {
   }
 
   const token = authHeader.split(" ")[1];
-
   if (!token) {
     return res.status(401).json({ message: "Authorization token not found." });
   }
 
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    req.user = decoded; // Attach decoded user info (userId, username, roles, tenantId, schemaName)
-
-    // For Super Admin, we might not want to set a specific schema path
-    // or we might want to allow them to specify it.
-    // For now, if not Super Admin, ensure schemaName is present.
+    req.user = decoded;
     if (!req.user.roles.includes("Super Admin") && !req.user.schemaName) {
       return res
         .status(403)
@@ -30,7 +26,6 @@ const verifyToken = (req, res, next) => {
           message: "Access denied: User not associated with a tenant schema.",
         });
     }
-
     next();
   } catch (error) {
     console.error("Token verification failed:", error.message);
@@ -39,19 +34,13 @@ const verifyToken = (req, res, next) => {
 };
 
 // Middleware to set the PostgreSQL search_path for the current session
-// This must come AFTER verifyToken
 const setTenantSchema = async (req, res, next) => {
-  // Super Admin does not necessarily operate within a single tenant's schema by default
-  // They might need to explicitly query a schema or operate on the public schema.
-  // For regular users, we set the schema.
   if (
     req.user &&
     req.user.schemaName &&
     !req.user.roles.includes("Super Admin")
   ) {
     try {
-      // Set the search_path for the current client connection
-      // This ensures all subsequent queries in this request context target the correct schema.
       await db.query(`SET search_path TO ${req.user.schemaName}, public`);
       next();
     } catch (error) {
@@ -64,8 +53,6 @@ const setTenantSchema = async (req, res, next) => {
         .json({ message: "Server error setting tenant context." });
     }
   } else {
-    // For Super Admin or users without a schema (e.g., during initial setup),
-    // ensure default search_path to public.
     try {
       await db.query(`SET search_path TO public`);
       next();
@@ -79,64 +66,32 @@ const setTenantSchema = async (req, res, next) => {
 };
 
 // Middleware to check if user has any of the required roles
+// Middleware to check if user has any of the required roles
 const authorizeRoles = (requiredRoles) => {
   return (req, res, next) => {
-    if (!req.user || !req.user.roles || req.user.roles.length === 0) {
-      return res
-        .status(403)
-        .json({ message: "Access denied: User has no assigned roles." });
-    }
-
-    if (req.user.roles.includes("Super Admin")) {
+    // 1. Check if the user is a Super Admin and grant immediate access.
+    if (req.user && req.user.roles && req.user.roles.includes('Super Admin')) {
       return next();
+    }
+    
+    // 2. Proceed with the standard role check for other users.
+    if (!req.user || !req.user.roles || req.user.roles.length === 0) {
+      return res.status(403).json({ message: "Access denied: User has no assigned roles." });
     }
 
     const hasRequiredRole = req.user.roles.some((role) =>
       requiredRoles.includes(role)
     );
 
-    if (hasRequiredRole) {
-      next();
-    } else {
-      return res
-        .status(403)
-        .json({ message: "Access denied: Insufficient permissions." });
+    if (!hasRequiredRole) {
+      return res.status(403).json({ message: "Access denied: Insufficient privileges." });
     }
+    next();
   };
 };
 
 module.exports = {
   verifyToken,
-  setTenantSchema, // New middleware
-  authorizeRoles,
-};
-
-const auth = (req, res, next) => {
-  const token = req.header("Authorization");
-
-  // Check if token exists
-  if (!token) {
-    return res.status(401).json({ message: "No token, authorization denied" });
-  }
-
-  // The token is usually in the format "Bearer <token>"
-  const tokenString = token.split(" ")[1];
-
-  try {
-    // Verify the token
-    const decoded = jwt.verify(tokenString, process.env.JWT_SECRET);
-
-    // Attach the user info to the request object
-    req.user = decoded;
-    next();
-  } catch (error) {
-    res.status(401).json({ message: "Token is not valid" });
-  }
-};
-
-// module.exports = auth;
-module.exports = {
-  verifyToken,
   setTenantSchema,
   authorizeRoles,
-}
+};

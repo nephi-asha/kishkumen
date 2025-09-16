@@ -17,6 +17,7 @@ router.put('/:id/roles', authorizeRoles(['Store Owner', 'Super Admin']), userCon
 
 router.delete('/:id', authorizeRoles(['Store Owner', 'Admin', 'Super Admin']), userController.deleteUser);
 
-router.get('/all-bakeries-users', authorizeRoles(['Super Admin']), userController.getAllUsersSuperAdmin);
+// router.get('/all-bakeries-users', authorizeRoles(['Super Admin']), userController.getAllUsersSuperAdmin);
+router.get('/all-bakeries', authorizeRoles(['Super Admin']), userController.getAllBakeriesSuperAdmin);
 
 module.exports = router;

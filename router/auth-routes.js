@@ -6,7 +6,7 @@ const db = require('../database/db');
 const { body, validationResult } = require('express-validator');
 const crypto = require('crypto');
 const nodemailer = require('nodemailer');
-// const { authorizeRoles } = require('../middleware/auth');
+const { authorizeRoles } = require('../middleware/auth');
 
 // Helper function to fetch user roles
 async function getUserRoles(userId) {
@@ -54,7 +54,7 @@ async function sendActivationEmail(email) {
         from: process.env.EMAIL_USER,
         to: email,
         subject: 'Your Account Has Been Activated',
-        text: `Your business account has been approved and activated! You can now log in to the system.`,
+        text: `Your business account has been approved and activated! You can now log in to the system. Welcome to Deseret Management System`,
     };
 
     try {
@@ -96,7 +96,7 @@ router.post(
             }
 
             const hashedPassword = await bcrypt.hash(password, 10);
-            const approvalToken = crypto.randomBytes(32).toString('hex'); // Generate a secure token
+            const approvalToken = crypto.randomBytes(32).toString('hex');
             const approvalLink = `${process.env.ADMIN_PORTAL_URL}/approve-business?token=${approvalToken}`;
 
 
@@ -126,6 +126,7 @@ router.post(
 
 router.get('/approve-business', async (req, res) => {
     const { token } = req.query;
+    console.log("Received token:", token);
 
     if (!token) {
         return res.status(400).json({ message: 'Approval token is required.' });
@@ -143,15 +144,12 @@ router.get('/approve-business', async (req, res) => {
 
         const user = userResult.rows[0];
         const { user_id, username, email } = user;
-        const bakeryName = username; // Or fetch from a separate registration-specific table if you prefer
+        const bakeryName = username; 
 
-        // Start a transaction for the entire approval process
         await db.pool.query('BEGIN');
 
-        // Now, proceed with creating the tenant and the schema
         const schemaName = `bakery_${bakeryName.toLowerCase().replace(/[^a-z0-9_]/g, '')}_${Date.now()}`;
         
-        // Find the 'Store Owner' role ID
         const storeOwnerRoleResult = await db.query('SELECT role_id FROM Roles WHERE role_name = $1', ['Store Owner']);
         if (storeOwnerRoleResult.rows.length === 0) {
             throw new Error('System error: Store Owner role not configured.');
@@ -174,7 +172,6 @@ router.get('/approve-business', async (req, res) => {
             [user_id, storeOwnerRoleId]
         );
 
-        // SQL to create a new tenant's schema and its tables
         const TENANT_SCHEMA_SQL = `
             CREATE SCHEMA IF NOT EXISTS $1;
 
@@ -351,25 +348,51 @@ router.post('/login', async (req, res) => {
             return res.status(403).json({ message: 'Your account is pending approval. Please check back later.' });
         }
         
-        const tenantResult = await db.query('SELECT schema_name FROM Tenants WHERE tenant_id = $1', [user.tenant_id]);
-        if (tenantResult.rows.length === 0) {
-            return res.status(500).json({ message: 'User associated with non-existent tenant.' });
-        }
-        const schemaName = tenantResult.rows[0].schema_name;
 
         const userRoles = await getUserRoles(user.user_id);
+            let schemaName = "public";
 
-        const token = jwt.sign(
-            {
-                userId: user.user_id,
-                username: user.username,
-                roles: userRoles,
-                tenantId: user.tenant_id,
-                schemaName: schemaName
-            },
-            process.env.JWT_SECRET,
-            { expiresIn: '8h' }
-        );
+            if (!userRoles.includes('Super Admin')) {
+                const tenantResult = await db.query('SELECT schema_name FROM Tenants WHERE tenant_id = $1', [user.tenant_id]);
+                if (tenantResult.rows.length === 0) {
+                    return res.status(500).json({ message: 'User associated with non-existent tenant.' });
+                }
+                schemaName = tenantResult.rows[0].schema_name;
+            }
+            
+            // The rest of the code is unchanged...
+            const token = jwt.sign(
+                {
+                    userId: user.user_id,
+                    username: user.username,
+                    roles: userRoles,
+                    tenantId: user.tenant_id,
+                    schemaName: schemaName
+                },
+                process.env.JWT_SECRET,
+                { expiresIn: '8h' }
+            );        
+
+
+        // const tenantResult = await db.query('SELECT schema_name FROM Tenants WHERE tenant_id = $1', [user.tenant_id]);
+        // if (tenantResult.rows.length === 0) {
+        //     return res.status(500).json({ message: 'User associated with non-existent tenant.' });
+        // }
+        // const schemaName = tenantResult.rows[0].schema_name;
+
+        // const userRoles = await getUserRoles(user.user_id);
+
+        // const token = jwt.sign(
+        //     {
+        //         userId: user.user_id,
+        //         username: user.username,
+        //         roles: userRoles,
+        //         tenantId: user.tenant_id,
+        //         schemaName: schemaName
+        //     },
+        //     process.env.JWT_SECRET,
+        //     { expiresIn: '8h' }
+        // );
 
         res.status(200).json({
             message: 'Login successful!',
