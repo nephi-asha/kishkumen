@@ -54,6 +54,8 @@ CREATE TABLE Users (
     email VARCHAR(100) UNIQUE,
     first_name VARCHAR(50),
     last_name VARCHAR(50),
+    is_approved BOOLEAN,
+    approval_token TEXT,
     tenant_id INT,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,

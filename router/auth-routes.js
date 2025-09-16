@@ -124,7 +124,7 @@ router.post(
 );
 
 router.post('/approve-business', async (req, res) => {
-    const { token } = req.body;
+    const { token } = req.query;
 
     if (!token) {
         return res.status(400).json({ message: 'Approval token is required.' });
