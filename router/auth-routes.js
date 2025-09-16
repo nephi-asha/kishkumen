@@ -6,6 +6,7 @@ const db = require('../database/db');
 const { body, validationResult } = require('express-validator');
 const crypto = require('crypto');
 const nodemailer = require('nodemailer');
+// const { authorizeRoles } = require('../middleware/auth');
 
 // Helper function to fetch user roles
 async function getUserRoles(userId) {
@@ -123,7 +124,7 @@ router.post(
     }
 );
 
-router.post('/approve-business', async (req, res) => {
+router.get('/approve-business', async (req, res) => {
     const { token } = req.query;
 
     if (!token) {
