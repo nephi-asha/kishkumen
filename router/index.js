@@ -11,8 +11,7 @@ const reportRoutes = require("./report-routes");
 const restockRoutes = require('./restocks-routes');
 const opayRoutes = require('./opay-routes');
 const defectRoutes = require('./defect-routes')
-const overStocks = require('./overstock-routes')
-
+const overStocksRoutes = require('./overstock-routes')
 
 router.get("/", (req, res) => {
   res.json("Welcome to Deseret 🐝🍯!");
@@ -30,7 +29,7 @@ router.use("/reports", reportRoutes);
 router.use("/restocks", restockRoutes);
 router.use("/opay", opayRoutes);
 router.use('/defects', defectRoutes);
-router.use('/overstocks', overStocks);
+router.use('/overstocks', overStocksRoutes);
 
 
 module.exports = router;
