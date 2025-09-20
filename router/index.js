@@ -14,7 +14,7 @@ const defectRoutes = require('./defect-routes')
 const overStocksRoutes = require('./overstock-routes')
 
 router.get("/", (req, res) => {
-  res.json("Welcome to Deseret 🐝🍯!");
+  res.json("Welcome to Deseret!");
 });
 
 router.use("/ingredients", ingredientRoutes);
