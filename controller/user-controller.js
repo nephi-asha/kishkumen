@@ -46,13 +46,14 @@ exports.addStaffMember = async (req, res) => {
         }
 
         const hashedPassword = await bcrypt.hash(password, 10);
+        const approvalToken = crypto.randomBytes(32).toString('hex');
 
         await db.pool.query('BEGIN');
 
         // Changed column name from bakery_id to tenant_id
         const newUserResult = await db.query(
-            'INSERT INTO Users (username, password_hash, email, first_name, last_name, tenant_id) VALUES ($1, $2, $3, $4, $5, $6) RETURNING user_id, first_name, last_name',
-            [username, hashedPassword, email, first_name, last_name, tenantId]
+            'INSERT INTO Users (username, password_hash, email, first_name, last_name, tenant_id, is_approved, approval_token) VALUES ($1, $2, $3, $4, $5, $6, TRUE, $7) RETURNING user_id, first_name, last_name',
+            [username, hashedPassword, email, first_name, last_name, tenantId, approvalToken]
         );
         const newUserId = newUserResult.rows[0].user_id;
         console.log('New user created with ID:', newUserId);
