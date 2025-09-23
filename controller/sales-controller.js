@@ -97,10 +97,10 @@ exports.getSaleById = async (req, res) => {
 // @route   POST /api/sales
 // @access  Private (Store Owner, Admin, Cashier)
 exports.createSale = async (req, res) => {
-    const { total_amount, payment_method, items } = req.body; // 'items' is an array of { product_id, quantity, unit_price }
+    const { total_amount, payment_method, items, sales_date } = req.body; // 'items' is an array of { product_id, quantity, unit_price }
     const cashierUserId = req.user.userId; // User who is making the sale
 
-    if (!total_amount || !payment_method || !Array.isArray(items) || items.length === 0) {
+    if (!total_amount || !payment_method || !Array.isArray(items) || items.length === 0 || !sales_date) {
         return handleError(res, 400, 'Total amount, payment method, and at least one item are required.');
     }
 
@@ -109,9 +109,9 @@ exports.createSale = async (req, res) => {
 
         // Insert the new sale
         const newSaleResult = await db.query(
-            `INSERT INTO Sales (total_amount, payment_method, cashier_user_id)
-             VALUES ($1, $2, $3) RETURNING sale_id, sale_date, total_amount, payment_method, cashier_user_id, created_at, updated_at`,
-            [total_amount, payment_method, cashierUserId]
+            `INSERT INTO Sales (total_amount, payment_method, cashier_user_id, created_at)
+             VALUES ($1, $2, $3, $4) RETURNING sale_id, sale_date, total_amount, payment_method, cashier_user_id, created_at, updated_at`,
+            [total_amount, payment_method, cashierUserId, sales_date]
         );
         const newSaleId = newSaleResult.rows[0].sale_id;
 
