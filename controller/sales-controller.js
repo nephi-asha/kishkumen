@@ -109,7 +109,7 @@ exports.createSale = async (req, res) => {
 
         // Insert the new sale
         const newSaleResult = await db.query(
-            `INSERT INTO Sales (total_amount, payment_method, cashier_user_id, created_at)
+            `INSERT INTO Sales (total_amount, payment_method, cashier_user_id, sale_date)
              VALUES ($1, $2, $3, $4) RETURNING sale_id, sale_date, total_amount, payment_method, cashier_user_id, created_at, updated_at`,
             [total_amount, payment_method, cashierUserId, sales_date]
         );
