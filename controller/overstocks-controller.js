@@ -39,3 +39,45 @@ exports.getOverStockData = async (req, res) => {
         handleError(res, 500, 'Server error fetching defects.');        
     }
 }
+
+exports.rollOverStock = async (req, res) => {
+
+    try {
+        await db.query('BEGIN'); 
+
+        const getOverstockQuery = `
+            SELECT product_id, quantity_left
+            FROM overstocks
+            WHERE rolled_over = False;
+        `;
+        const overstockResult = await db.query(getOverstockQuery);
+        const overstocks = overstockResult.rows;
+
+        if (overstocks.length === 0) {
+            await db.query('COMMIT');
+            return res.status(200).json({ message: 'No overstock to roll over.' });
+        }
+
+        for (const item of overstocks) {
+            const updateProductQuery = `
+                UPDATE products
+                SET quantity_left = quantity_left + $1
+                WHERE id = $2;
+            `;
+            await db.query(updateProductQuery, [item.quantity, item.product_id]);
+        }
+
+        const clearOverstockQuery = `
+            UPDATE overstocks SET rolled_over = TRUE;
+        `;
+        await db.query(clearOverstockQuery);
+
+        await db.query('COMMIT');
+        res.status(200).json({ message: `Successfully rolled over ${overstocks.length} overstock entries.` });
+
+    } catch (error) {
+        await db.query('ROLLBACK');
+        console.error('Error rolling over stock:', error);
+        handleError(res, 500, 'Server error during stock roll over.');
+    }
+};

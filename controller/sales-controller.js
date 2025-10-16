@@ -56,7 +56,6 @@ exports.getAllSales = async (req, res) => {
         handleError(res, 500, 'Server error fetching sales.');
     }
 };
-
 // @desc    Get a single sale by ID, including its items
 // @route   GET /api/sales/:id
 // @access  Private (Any authenticated user within a bakery)
