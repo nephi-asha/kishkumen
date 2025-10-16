@@ -64,7 +64,7 @@ exports.rollOverStock = async (req, res) => {
                 SET quantity_left = quantity_left + $1
                 WHERE product_id = $2;
             `;
-            await db.query(updateProductQuery, [item.quantity, item.product_id]);
+            await db.query(updateProductQuery, [item.quantity_left, item.product_id]);
         }
 
         const clearOverstockQuery = `
