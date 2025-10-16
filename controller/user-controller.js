@@ -255,11 +255,10 @@ exports.deleteUser = async (req, res) => {
         }
 
         const userToDelete = userToDeleteResult.rows[0];
-        const userTenantId = userToDelete.tenant_id; // Changed from userBakeryId to userTenantId
+        const userTenantId = userToDelete.tenant_id;
         const targetUserRoles = userToDelete.roles;
 
         const isSuperAdmin = currentUserRoles.includes('Super Admin');
-        // Changed from userBakeryId === currentUserBakeryId to userTenantId === currentUserTenantId
         const isTenantAdmin = (currentUserRoles.includes('Store Owner') || currentUserRoles.includes('Admin')) && userTenantId === currentUserTenantId;
 
         if (!isSuperAdmin && !isTenantAdmin) {
