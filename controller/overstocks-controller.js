@@ -1,44 +1,32 @@
 const db = require('../database/db');
 const handleError = require("../utils/errorHandler");
 
-exports.getOverStockData = async (req, res) => {
-    const {startDate, endDate } = req.query;
-
-    let overStockQuery = `
-    SELECT * FROM overstocks
-    `;
-    let overStockQueryParams = [];
-    let paramIndex = 1;
-
-    if (startDate || endDate) {
-        overStockQuery += ` WHERE `;
-        if (startDate) {
-            overStockQuery += `created_at >= $${paramIndex++}`;
-            overStockQueryParams.push(startDate);
-        }
-        if (startDate && endDate) {
-            overStockQuery += ` AND `;
-        }
-        if (endDate) {
-            const adjustedEndDate = new Date(endDate);
-            adjustedEndDate.setDate(adjustedEndDate.getDate() + 1);
-
-            overStockQuery += `created_at < $${paramIndex++}`;
-            overStockQueryParams.push(adjustedEndDate.toISOString().split('T')[0]);
-        }
-    }
-    overStockQuery += ` ORDER BY created_at DESC`;
-
+exports.getYesterdaysOverStock = async (req, res) => {
     try {
-        const overStockResult = await db.query(overStockQuery, overStockQueryParams);
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        const yesterday = new Date(today);
+        yesterday.setDate(today.getDate() - 1);
+
+        const overStockQuery = `
+            SELECT * FROM overstocks
+            WHERE created_at >= $1 AND created_at < $2
+            ORDER BY created_at DESC
+        `;
+        
+        const queryParams = [yesterday, today];
+
+        const overStockResult = await db.query(overStockQuery, queryParams);
         const overStocks = overStockResult.rows;
-        res.status(200).json(overStocks)
-        }
-    catch (error) {
-        console.error('Error fetching defects:', error);
-        handleError(res, 500, 'Server error fetching defects.');        
+
+        res.status(200).json(overStocks);
+
+    } catch (error) {
+        console.error("Error fetching yesterday's overstock:", error);
+        handleError(res, 500, "Server error fetching yesterday's overstock.");        
     }
-}
+};
 
 exports.rollOverStock = async (req, res) => {
 
