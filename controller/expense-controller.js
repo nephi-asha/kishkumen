@@ -1,16 +1,21 @@
 const db = require('../database/db');
 const handleError = require('../utils/errorHandler');
 
-// @desc    Get all expenses for the authenticated user's bakery
-// @route   GET /api/expenses?startDate=YYYY-MM-DD&endDate=YYYY-MM-DD&costType=Fixed/Variable&category=Rent
+
+// Enum-like objects for validation
+const VALID_STATUSES = ['Requested', 'Approved', 'Paid', 'Denied'];
+const VALID_COST_TYPES = ['Fixed', 'Variable'];
+const VALID_FREQUENCIES = ['One-time', 'Monthly', 'Yearly'];
+
+// @desc    Get all expenses
+// @route   GET /api/expenses?startDate=...&endDate=...&costType=...&category=...&status=...&isActive=...
 // @access  Private (Store Owner, Admin, Baker)
-
-
 exports.getAllExpenses = async (req, res) => {
-    const { startDate, endDate, costType, category } = req.query;
+    const { startDate, endDate, costType, category, status, isActive } = req.query;
 
     let query = `
-        SELECT expense_id, expense_date, amount, description, category, cost_type, frequency, created_at, updated_at
+        SELECT expense_id, expense_date, amount, description, category, cost_type, 
+               frequency, status, is_active, created_at, updated_at
         FROM Expenses
     `;
     const queryParams = [];
@@ -32,6 +37,14 @@ exports.getAllExpenses = async (req, res) => {
     if (category) {
         conditions.push(`category ILIKE $${paramIndex++}`); // Case-insensitive search
         queryParams.push(`%${category}%`);
+    }
+    if (status) {
+        conditions.push(`status = $${paramIndex++}`);
+        queryParams.push(status);
+    }
+    if (isActive !== undefined) {
+        conditions.push(`is_active = $${paramIndex++}`);
+        queryParams.push(isActive); // Will be 'true' or 'false'
     }
 
     if (conditions.length > 0) {
@@ -57,7 +70,8 @@ exports.getExpenseById = async (req, res) => {
 
     try {
         const expense = await db.query(
-            `SELECT expense_id, expense_date, amount, description, category, cost_type, frequency, created_at, updated_at
+            `SELECT expense_id, expense_date, amount, description, category, cost_type, 
+                    frequency, status, is_active, created_at, updated_at
              FROM Expenses
              WHERE expense_id = $1`,
             [expenseId]
@@ -73,21 +87,39 @@ exports.getExpenseById = async (req, res) => {
     }
 };
 
-// @desc    Create a new expense
+// @desc    Create a new expense (as a request)
 // @route   POST /api/expenses
 // @access  Private (Store Owner, Admin, Baker)
 exports.createExpense = async (req, res) => {
-    const { expense_date, amount, description, category, cost_type, frequency } = req.body;
+    // is_active defaults to FALSE in the DB
+    // status defaults to 'Requested' if not provided
+    const { expense_date, amount, description, category, cost_type, frequency, status } = req.body;
 
-    if (!amount || !cost_type || !['Fixed', 'Variable'].includes(cost_type)) {
-        return handleError(res, 400, 'Amount and a valid cost type (Fixed/Variable) are required.');
+    if (!amount || !cost_type) {
+        return handleError(res, 400, 'Amount and cost type are required.');
     }
+
+    if (!VALID_COST_TYPES.includes(cost_type)) {
+         return handleError(res, 400, `Invalid cost type. Must be one of: ${VALID_COST_TYPES.join(', ')}`);
+    }
+
+    const effectiveStatus = status && VALID_STATUSES.includes(status) ? status : 'Requested';
 
     try {
         const newExpense = await db.query(
-            `INSERT INTO Expenses (expense_date, amount, description, category, cost_type, frequency)
-             VALUES ($1, $2, $3, $4, $5, $6) RETURNING expense_id, expense_date, amount, category, cost_type, frequency`,
-            [expense_date || new Date(), amount, description || null, category || null, cost_type, frequency || 'One-time']
+            `INSERT INTO Expenses (expense_date, amount, description, category, cost_type, frequency, status, is_active)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8) 
+             RETURNING expense_id, expense_date, amount, category, cost_type, frequency, status, is_active`,
+            [
+                expense_date || new Date(), 
+                amount, 
+                description || null, 
+                category || null, 
+                cost_type, 
+                frequency || 'One-time', 
+                effectiveStatus,
+                false // is_active is always false on creation
+            ]
         );
         res.status(201).json({
             message: 'Expense recorded successfully!',
@@ -99,20 +131,29 @@ exports.createExpense = async (req, res) => {
     }
 };
 
-// @desc    Update an existing expense
+// @desc    Update an existing expense (status, details, or activation)
 // @route   PUT /api/expenses/:id
 // @access  Private (Store Owner, Admin)
 exports.updateExpense = async (req, res) => {
     const expenseId = parseInt(req.params.id);
-    const { expense_date, amount, description, category, cost_type, frequency } = req.body;
+    const { expense_date, amount, description, category, cost_type, frequency, status, is_active } = req.body;
 
     try {
-        const existingExpense = await db.query(
-            'SELECT expense_id FROM Expenses WHERE expense_id = $1',
+        // Get the current status of the expense
+        const existingExpenseResult = await db.query(
+            'SELECT expense_id, status FROM Expenses WHERE expense_id = $1',
             [expenseId]
         );
-        if (existingExpense.rows.length === 0) {
+        if (existingExpenseResult.rows.length === 0) {
             return handleError(res, 404, 'Expense not found.');
+        }
+
+        const currentStatus = existingExpenseResult.rows[0].status;
+        
+        const effectiveStatus = (status !== undefined) ? status : currentStatus;
+
+        if (is_active === true && effectiveStatus !== 'Paid') {
+             return handleError(res, 400, 'Expense must be marked as "Paid" before it can be activated.');
         }
 
         const updateFields = [];
@@ -123,31 +164,46 @@ exports.updateExpense = async (req, res) => {
         if (amount !== undefined) { updateFields.push(`amount = $${paramIndex++}`); updateValues.push(amount); }
         if (description !== undefined) { updateFields.push(`description = $${paramIndex++}`); updateValues.push(description); }
         if (category !== undefined) { updateFields.push(`category = $${paramIndex++}`); updateValues.push(category); }
+        
         if (cost_type !== undefined) {
-            if (!['Fixed', 'Variable'].includes(cost_type)) {
-                return handleError(res, 400, 'Invalid cost type. Must be Fixed or Variable.');
+            if (!VALID_COST_TYPES.includes(cost_type)) {
+                return handleError(res, 400, `Invalid cost type. Must be one of: ${VALID_COST_TYPES.join(', ')}`);
             }
             updateFields.push(`cost_type = $${paramIndex++}`);
             updateValues.push(cost_type);
         }
+        
         if (frequency !== undefined) {
-            if (!['One-time', 'Monthly', 'Yearly'].includes(frequency)) {
-                return handleError(res, 400, 'Invalid frequency. Must be One-time, Monthly, or Yearly.');
+            if (!VALID_FREQUENCIES.includes(frequency)) {
+                return handleError(res, 400, `Invalid frequency. Must be one of: ${VALID_FREQUENCIES.join(', ')}`);
             }
             updateFields.push(`frequency = $${paramIndex++}`);
             updateValues.push(frequency);
+        }
+
+        if (status !== undefined) {
+             if (!VALID_STATUSES.includes(status)) {
+                return handleError(res, 400, `Invalid status. Must be one of: ${VALID_STATUSES.join(', ')}`);
+            }
+            updateFields.push(`status = $${paramIndex++}`);
+            updateValues.push(status);
+        }
+
+        if (is_active !== undefined) {
+            updateFields.push(`is_active = $${paramIndex++}`);
+            updateValues.push(is_active);
         }
 
         if (updateFields.length === 0) {
             return handleError(res, 400, 'No fields provided for update.');
         }
 
-        updateValues.push(expenseId); // Add expenseId for WHERE clause
+        updateValues.push(expenseId);
         const updateQuery = `
             UPDATE Expenses
             SET ${updateFields.join(', ')}, updated_at = CURRENT_TIMESTAMP
             WHERE expense_id = $${paramIndex}
-            RETURNING expense_id, amount, cost_type, frequency
+            RETURNING expense_id, amount, cost_type, frequency, status, is_active
         `;
 
         const updatedExpense = await db.query(updateQuery, updateValues);
@@ -169,14 +225,6 @@ exports.deleteExpense = async (req, res) => {
     const expenseId = parseInt(req.params.id);
 
     try {
-        const existingExpense = await db.query(
-            'SELECT expense_id FROM Expenses WHERE expense_id = $1',
-            [expenseId]
-        );
-        if (existingExpense.rows.length === 0) {
-            return handleError(res, 404, 'Expense not found.');
-        }
-
         const deleteResult = await db.query(
             'DELETE FROM Expenses WHERE expense_id = $1 RETURNING expense_id',
             [expenseId]

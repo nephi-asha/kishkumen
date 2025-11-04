@@ -273,6 +273,8 @@ router.get('/approve-business', async (req, res) => {
                 category VARCHAR(100),
                 frequency VARCHAR(50) DEFAULT 'One-time' CHECK (frequency IN ('One-time', 'Monthly', 'Yearly')),
                 cost_type VARCHAR(20) NOT NULL CHECK (cost_type IN ('Fixed', 'Variable')),
+                status VARCHAR(50) DEFAULT 'Requested' CHECK (status IN ('Requested', 'Approved', 'Paid', 'Denied')),
+                is_active BOOLEAN DEFAULT FALSE,
                 created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
             );
